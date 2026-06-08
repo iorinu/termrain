@@ -837,7 +837,7 @@ fn build_composite_image(
 }
 
 /// 0..255 のチャンネルを alpha 合成（fg を a の割合で混ぜる）
-fn blend(bg: u8, fg: u8, a: f64) -> u8 {
+pub(crate) fn blend(bg: u8, fg: u8, a: f64) -> u8 {
     let v = (bg as f64) * (1.0 - a) + (fg as f64) * a;
     v.clamp(0.0, 255.0) as u8
 }
@@ -845,7 +845,7 @@ fn blend(bg: u8, fg: u8, a: f64) -> u8 {
 /// 降水強度 (mm/h) → 14 段階のカラー (R, G, B, A)。
 /// バウンダリ: 0,1,2,4,8,12,16,24,32,40,48,56,64,80,80+
 /// 水色 → 青 → 緑 → 黄緑 → 黄 → 橙 → 赤 → 紫 のグラデーション。
-fn rain_to_yahoo(mmh: f64) -> Option<(u8, u8, u8, u8)> {
+pub(crate) fn rain_to_yahoo(mmh: f64) -> Option<(u8, u8, u8, u8)> {
     if mmh < 0.1 {
         return None;
     }
@@ -883,7 +883,7 @@ fn rain_to_yahoo(mmh: f64) -> Option<(u8, u8, u8, u8)> {
 
 /// 凡例カラーバー用：14 段階のラベルと色。
 /// ラベルは「下限値」を表示する（例 "8" は 8〜12mm/h の区間）。
-const LEGEND_STOPS: &[(&str, (u8, u8, u8))] = &[
+pub(crate) const LEGEND_STOPS: &[(&str, (u8, u8, u8))] = &[
     ("1",   (200, 230, 255)),
     ("2",   (160, 210, 250)),
     ("4",   (90, 170, 240)),
@@ -903,7 +903,7 @@ const LEGEND_STOPS: &[(&str, (u8, u8, u8))] = &[
 /// 画像下端に凡例カラーバーを焼き込む。
 /// 8 色のセグメントを横並びで描き、画像の下 4% の領域を使う。
 /// 数値ラベルは TUI 側（フッター or タイトル）で別途表示する想定。
-fn draw_legend_bar(img: &mut image::RgbaImage) {
+pub(crate) fn draw_legend_bar(img: &mut image::RgbaImage) {
     let w = img.width();
     let h = img.height();
     let bar_h = (h as f32 * 0.04).max(8.0) as u32;
@@ -944,7 +944,7 @@ fn draw_legend_bar(img: &mut image::RgbaImage) {
 
 /// Bilinear interpolation: (fx, fy) は 0..1 の正規化座標。
 /// 画像の連続的なサンプリングでガビガビ感を消す。
-fn sample_bilinear(img: &image::RgbaImage, fx: f64, fy: f64) -> image::Rgba<u8> {
+pub(crate) fn sample_bilinear(img: &image::RgbaImage, fx: f64, fy: f64) -> image::Rgba<u8> {
     let w = img.width() as f64;
     let h = img.height() as f64;
     let x = (fx * w - 0.5).max(0.0).min(w - 1.0);
@@ -998,7 +998,7 @@ fn sample_rain_max(img: &image::RgbaImage, fx: f64, fy: f64) -> f64 {
 }
 
 /// 画像中心に "+" 形状の十字を描き込む
-fn draw_cross(img: &mut image::RgbaImage, cx: i32, cy: i32, radius: i32, color: image::Rgba<u8>) {
+pub(crate) fn draw_cross(img: &mut image::RgbaImage, cx: i32, cy: i32, radius: i32, color: image::Rgba<u8>) {
     let (w, h) = (img.width() as i32, img.height() as i32);
     for d in -radius..=radius {
         let px = cx + d;
@@ -1131,7 +1131,7 @@ fn jma_weather_code_text(code: &str) -> &'static str {
 }
 
 /// 緯度経度 → Web メルカトル系のタイル番号 (z, x, y)
-fn lonlat_to_tile(lon: f64, lat: f64, zoom: u8) -> (u8, u32, u32) {
+pub(crate) fn lonlat_to_tile(lon: f64, lat: f64, zoom: u8) -> (u8, u32, u32) {
     let lat_rad = lat.to_radians();
     let n = 2f64.powi(zoom as i32);
     let xtile = ((lon + 180.0) / 360.0 * n).floor() as u32;
@@ -1142,7 +1142,7 @@ fn lonlat_to_tile(lon: f64, lat: f64, zoom: u8) -> (u8, u32, u32) {
 }
 
 /// タイル番号 → 左上の (lat, lon)
-fn tile_to_lonlat(z: u8, x: u32, y: u32) -> (f64, f64) {
+pub(crate) fn tile_to_lonlat(z: u8, x: u32, y: u32) -> (f64, f64) {
     let n = 2f64.powi(z as i32);
     let lon = x as f64 / n * 360.0 - 180.0;
     let lat_rad = (std::f64::consts::PI * (1.0 - 2.0 * y as f64 / n)).sinh().atan();
