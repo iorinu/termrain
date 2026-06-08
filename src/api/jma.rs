@@ -21,7 +21,10 @@ use super::{
 /// 1 タイル分の降水量グリッド（128x128, mm/h）。
 /// 取得後はメモリキャッシュに保持し、隣接タイルへの移動でも DL し直さない。
 type TileGrid = Vec<Vec<f64>>;
-type TileKey = (u8, u32, u32, String); // (z, x, y, validtime)
+/// (z, x, y, basetime, validtime, elem)
+/// elem は "none" (実況) または "fcst" (予測)。同じ basetime でも validtime と elem の
+/// 組合せが違えば別のタイル扱い。
+type TileKey = (u8, u32, u32, String, String, &'static str);
 
 const TILE_W: usize = 128;
 const TILE_H: usize = 128;
@@ -75,6 +78,7 @@ impl Jma {
     }
 
     /// JMA ナウキャスト PNG をそのまま RgbaImage で取得（画像合成用）。
+    /// elem は "none"=実況、"fcst"=予測。validtime > basetime のときは "fcst" を使う。
     async fn fetch_rain_image(
         &self,
         z: u8,
@@ -82,14 +86,15 @@ impl Jma {
         y: u32,
         basetime: &str,
         validtime: &str,
+        elem: &'static str,
     ) -> Result<Arc<image::RgbaImage>> {
-        let key = (z, x, y, validtime.to_string());
+        let key = (z, x, y, basetime.to_string(), validtime.to_string(), elem);
         if let Some(g) = self.rain_image_cache.lock().unwrap().get(&key).cloned() {
             return Ok(g);
         }
         let url = format!(
-            "https://www.jma.go.jp/bosai/jmatile/data/nowc/{}/none/{}/surf/hrpns/{}/{}/{}.png",
-            basetime, validtime, z, x, y
+            "https://www.jma.go.jp/bosai/jmatile/data/nowc/{}/{}/{}/surf/hrpns/{}/{}/{}.png",
+            basetime, elem, validtime, z, x, y
         );
         let resp = self.client.get(&url).send().await?;
         let img = if resp.status().is_success() {
@@ -166,15 +171,16 @@ impl Jma {
         y: u32,
         basetime: &str,
         validtime: &str,
+        elem: &'static str,
     ) -> Result<Arc<TileGrid>> {
-        let key = (z, x, y, validtime.to_string());
+        let key = (z, x, y, basetime.to_string(), validtime.to_string(), elem);
         if let Some(g) = self.tile_cache.lock().unwrap().get(&key).cloned() {
             return Ok(g);
         }
 
         let url = format!(
-            "https://www.jma.go.jp/bosai/jmatile/data/nowc/{}/none/{}/surf/hrpns/{}/{}/{}.png",
-            basetime, validtime, z, x, y
+            "https://www.jma.go.jp/bosai/jmatile/data/nowc/{}/{}/{}/surf/hrpns/{}/{}/{}.png",
+            basetime, elem, validtime, z, x, y
         );
         let resp = self.client.get(&url).send().await?;
         let grid: TileGrid = if resp.status().is_success() {
@@ -315,8 +321,10 @@ impl WeatherProvider for Jma {
             .collect::<String>();
         let icon = text_to_icon(&condition);
 
-        // ISO8601 with offset (+09:00 など) を Local にする
-        let observed_at = DateTime::parse_from_rfc3339(&overview.report_datetime)
+        // JMA overview.report_datetime は「概況発表時刻」で 1 日 2 回しか更新されない。
+        // これを観測時刻にすると数時間古く見えてしまうので、後段で Open-Meteo current の
+        // 時刻に上書きする（_jma_report_at は将来の表示用に残しておく）。
+        let _jma_report_at = DateTime::parse_from_rfc3339(&overview.report_datetime)
             .context("JMA report_datetime パース失敗")?
             .with_timezone(&Local);
 
@@ -327,15 +335,17 @@ impl WeatherProvider for Jma {
             .current(lat, lon)
             .await
             .ok();
-        let (temperature_c, humidity_pct, wind_speed_ms, wind_direction_deg) = match om_now {
-            Some(c) => (
-                c.temperature_c,
-                c.humidity_pct,
-                c.wind_speed_ms,
-                c.wind_direction_deg,
-            ),
-            None => (fallback_temp, None, None, None),
-        };
+        let (temperature_c, humidity_pct, wind_speed_ms, wind_direction_deg, observed_at) =
+            match om_now {
+                Some(c) => (
+                    c.temperature_c,
+                    c.humidity_pct,
+                    c.wind_speed_ms,
+                    c.wind_direction_deg,
+                    c.observed_at,
+                ),
+                None => (fallback_temp, None, None, None, _jma_report_at),
+            };
 
         Ok(CurrentWeather {
             observed_at,
@@ -497,12 +507,26 @@ impl WeatherProvider for Jma {
         if times.is_empty() {
             anyhow::bail!("ナウキャスト targetTimes が空");
         }
-        // 範囲外クランプ。time_offset==0 が「現在」。
+        // targetTimes_N1.json は新しい順に並ぶ（[0] が最新）かつ実況 (basetime == validtime) のみ。
+        // - time_offset == 0  : 最新の実況
+        // - time_offset <  0  : 過去（配列の |offset| 番目を採用）
+        // - time_offset >  0  : 未来予測。最新 basetime + 5 分 × offset を validtime にして
+        //                       URL の elem 部分を "fcst" にする。
+        let latest = &times[0];
         let len = times.len() as i32;
-        let idx = (time_offset).clamp(0, len - 1) as usize;
-        let t = &times[idx];
-        let basetime = t.basetime.clone();
-        let validtime = t.validtime.clone();
+        let (basetime, validtime, elem): (String, String, &'static str) = if time_offset <= 0 {
+            let past_idx = ((-time_offset).min(len - 1)) as usize;
+            let t = &times[past_idx];
+            (t.basetime.clone(), t.validtime.clone(), "none")
+        } else {
+            // 5 分刻みで未来へ。最大 12 ステップ (60 分先) まで意味がある。
+            let steps = time_offset.min(12);
+            let base_dt = parse_jma_compact(&latest.basetime)
+                .unwrap_or_else(|_| chrono::Local::now());
+            let future = base_dt + chrono::Duration::minutes((steps as i64) * 5);
+            let vt = future.with_timezone(&chrono::Utc).format("%Y%m%d%H%M%S").to_string();
+            (latest.basetime.clone(), vt, "fcst")
+        };
 
         // 地図と雨雲でズームを分離する。
         // - 地図 (CARTO/GSI): z=13 まで実データがある → 高ズームで取れば綺麗
@@ -553,13 +577,13 @@ impl WeatherProvider for Jma {
                     let bt = basetime.clone();
                     let vt = validtime.clone();
                     rain_fetches.push(async move {
-                        let g = self.fetch_tile(rain_z, rtx, rty, &bt, &vt).await.ok();
+                        let g = self.fetch_tile(rain_z, rtx, rty, &bt, &vt, elem).await.ok();
                         ((dx, dy), g)
                     });
                     let bt2 = basetime.clone();
                     let vt2 = validtime.clone();
                     rain_img_fetches.push(async move {
-                        let g = self.fetch_rain_image(rain_z, rtx, rty, &bt2, &vt2).await.ok();
+                        let g = self.fetch_rain_image(rain_z, rtx, rty, &bt2, &vt2, elem).await.ok();
                         ((dx, dy), g)
                     });
                 }
