@@ -97,13 +97,15 @@ impl Jma {
             basetime, elem, validtime, z, x, y
         );
         let resp = self.client.get(&url).send().await?;
-        let img = if resp.status().is_success() {
+        let status = resp.status();
+        let img = if status.is_success() {
             let bytes = resp.bytes().await?;
             image::load_from_memory(&bytes)
                 .context("雨雲 PNG デコード失敗")?
                 .to_rgba8()
         } else {
-            // 雨雲なし領域は完全透明 256x256 にしておく
+            tracing::warn!("雨雲タイル取得失敗 status={} url={}", status, url);
+            // 雨雲なし領域 or 該当タイル無し → 全透明 256x256 にしておく
             image::RgbaImage::from_pixel(256, 256, image::Rgba([0, 0, 0, 0]))
         };
         let arc = Arc::new(img);
@@ -183,14 +185,15 @@ impl Jma {
             basetime, elem, validtime, z, x, y
         );
         let resp = self.client.get(&url).send().await?;
-        let grid: TileGrid = if resp.status().is_success() {
+        let status = resp.status();
+        let grid: TileGrid = if status.is_success() {
             let bytes = resp.bytes().await?;
             let img = image::load_from_memory(&bytes)
                 .context("ナウキャスト PNG デコード失敗")?
                 .to_rgba8();
             downsample_tile(&img)
         } else {
-            // 雨雲が一切無いタイルは 404 が返るケースがある → 空タイル扱い
+            tracing::warn!("ナウキャスト数値 status={} url={}", status, url);
             vec![vec![0.0; TILE_W]; TILE_H]
         };
         let arc = Arc::new(grid);
@@ -527,6 +530,10 @@ impl WeatherProvider for Jma {
             let vt = future.with_timezone(&chrono::Utc).format("%Y%m%d%H%M%S").to_string();
             (latest.basetime.clone(), vt, "fcst")
         };
+        tracing::info!(
+            "radar request time_offset={} basetime={} validtime={} elem={}",
+            time_offset, basetime, validtime, elem
+        );
 
         // 地図と雨雲でズームを分離する。
         // - 地図 (CARTO/GSI): z=13 まで実データがある → 高ズームで取れば綺麗
