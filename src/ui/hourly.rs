@@ -13,7 +13,7 @@ use crate::app::AppState;
 use super::titled_block;
 
 pub fn draw(f: &mut Frame, area: Rect, state: &AppState) {
-    let block = titled_block("時間別予報（気温:赤線 / 降水:青棒）");
+    let block = titled_block("時間別予報  🌡 気温  💧 降水");
     let inner = block.inner(area);
     f.render_widget(block, area);
 
@@ -55,7 +55,8 @@ pub fn draw(f: &mut Frame, area: Rect, state: &AppState) {
 
     let temp_min = temp_data.iter().map(|p| p.1).fold(f64::INFINITY, f64::min);
     let temp_max = temp_data.iter().map(|p| p.1).fold(f64::NEG_INFINITY, f64::max);
-    let pad = ((temp_max - temp_min) * 0.2).max(2.0);
+    // Y 軸の余白は最小限にして折れ線をダイナミックに見せる
+    let pad = ((temp_max - temp_min) * 0.1).max(0.5);
 
     // X 軸の時刻ラベルを 4 〜 6 個生成。先頭・末尾と等間隔の中間点を選ぶ。
     // ratatui の Axis.labels は bounds 範囲を等間隔に区切って配置するので、

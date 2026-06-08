@@ -286,9 +286,10 @@ impl WeatherProvider for Jma {
     }
 
     async fn current(&self, lat: f64, lon: f64) -> Result<CurrentWeather> {
-        // JMA は「今この瞬間の気温・湿度」を返す軽量 API が無いため、
-        // overview_forecast の天気概況 + forecast の本日の最高/最低を使って
-        // 「現在に近い」概況を返す。気温は最寄りの地点予報の最高気温を仮置き。
+        // JMA 自体は「現在の気温・湿度・風」を配信していないので、
+        //   - 概況テキスト・観測時刻: JMA (日本語の天気文章を見せたい)
+        //   - 気温・湿度・風速: Open-Meteo (1時間粒度の実況)
+        // をマージして返す。
         let area = Self::nearest_area(lat, lon);
         let overview_url = format!(
             "https://www.jma.go.jp/bosai/forecast/data/overview_forecast/{}.json",
@@ -319,8 +320,22 @@ impl WeatherProvider for Jma {
             .context("JMA report_datetime パース失敗")?
             .with_timezone(&Local);
 
-        // forecast から本日の最高気温を取り出す（あれば）
-        let temp = fetch_today_temp(&self.client, area).await.unwrap_or(f64::NAN);
+        // 気温・湿度・風は Open-Meteo の実況値を採用（JMA は配信していない）。
+        // forecast の最高気温は概況の「今日の予想最高気温」相当なのでフォールバックに残す。
+        let fallback_temp = fetch_today_temp(&self.client, area).await.unwrap_or(f64::NAN);
+        let om_now = super::open_meteo::OpenMeteo::new()
+            .current(lat, lon)
+            .await
+            .ok();
+        let (temperature_c, humidity_pct, wind_speed_ms, wind_direction_deg) = match om_now {
+            Some(c) => (
+                c.temperature_c,
+                c.humidity_pct,
+                c.wind_speed_ms,
+                c.wind_direction_deg,
+            ),
+            None => (fallback_temp, None, None, None),
+        };
 
         Ok(CurrentWeather {
             observed_at,
@@ -330,10 +345,10 @@ impl WeatherProvider for Jma {
                 condition
             },
             icon,
-            temperature_c: temp,
-            humidity_pct: None,
-            wind_speed_ms: None,
-            wind_direction_deg: None,
+            temperature_c,
+            humidity_pct,
+            wind_speed_ms,
+            wind_direction_deg,
         })
     }
 
@@ -434,6 +449,26 @@ impl WeatherProvider for Jma {
                 temp_min_c: tmin.get(i).copied().flatten(),
                 precipitation_prob_pct: pops.get(i).copied().flatten(),
             });
+        }
+
+        // JMA 週間予報の初日（=今日）の最高気温は未確定のことが多い。
+        // 空欄を Open-Meteo の同日データで埋めて表示の歯抜けを防ぐ。
+        if out.iter().any(|d| d.temp_max_c.is_none() || d.temp_min_c.is_none()) {
+            if let Ok(om) = super::open_meteo::OpenMeteo::new().daily(lat, lon).await {
+                for d in out.iter_mut() {
+                    if let Some(o) = om.iter().find(|o| o.date == d.date) {
+                        if d.temp_max_c.is_none() {
+                            d.temp_max_c = o.temp_max_c;
+                        }
+                        if d.temp_min_c.is_none() {
+                            d.temp_min_c = o.temp_min_c;
+                        }
+                        if d.precipitation_prob_pct.is_none() {
+                            d.precipitation_prob_pct = o.precipitation_prob_pct;
+                        }
+                    }
+                }
+            }
         }
 
         Ok(out)
