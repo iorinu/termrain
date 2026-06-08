@@ -87,6 +87,10 @@ impl Default for OpenMeteo {
 
 #[derive(Debug, Deserialize)]
 struct ForecastResponse {
+    /// timezone=auto を指定すると返ってくる現地タイムゾーンのオフセット (秒)。
+    /// 例: パリ夏時間なら 7200。これを使って current/hourly の time を UTC に直す。
+    #[serde(default)]
+    utc_offset_seconds: Option<i32>,
     current: Option<CurrentBlock>,
     hourly: Option<HourlyBlock>,
     daily: Option<DailyBlock>,
@@ -154,17 +158,35 @@ fn wmo_to_text(code: u32) -> &'static str {
     }
 }
 
-/// ISO8601 (例: "2026-06-08T12:00") を Local 時刻として解釈する。
-/// Open-Meteo のデフォルトはタイムゾーンが無い「UTC ベース」だが、
-/// このアプリでは timezone=auto を付けてリクエストするので、
-/// 返ってくる値はその地点のローカル時刻と解釈してよい。
-fn parse_local(s: &str) -> Result<DateTime<Local>> {
+/// Open-Meteo の現地時刻文字列 + UTC オフセット → 絶対時刻を保った Local DateTime。
+///
+/// timezone=auto を付けると Open-Meteo は **その地点の現地時刻** を返してくる
+/// （例: パリの "2026-06-08T18:00" = UTC 16:00）。これを単純に Local 解釈すると
+/// ユーザーの Local とずれて「観測時刻が古すぎる」ような表示バグになる。
+///
+/// utc_offset_seconds を使って一旦 FixedOffset に変換 → ユーザー Local に直すことで
+/// 絶対時刻を保ったまま表示できる（パリの 18:00 → 日本では 01:00 と表示）。
+fn parse_local_with_offset(s: &str, offset_seconds: Option<i32>) -> Result<DateTime<Local>> {
     let ndt = NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M")
         .with_context(|| format!("時刻パース失敗: {s}"))?;
-    Local
+    let offset = offset_seconds.unwrap_or(0);
+    let fixed = chrono::FixedOffset::east_opt(offset).context("invalid UTC offset")?;
+    let dt = fixed
         .from_local_datetime(&ndt)
         .single()
-        .context("ローカル時刻の単一解決に失敗")
+        .context("ローカル時刻の単一解決に失敗")?;
+    Ok(dt.with_timezone(&Local))
+}
+
+/// 後方互換: offset 不明（多地点クエリのレスポンスなど）の場合に Local 解釈する。
+fn parse_local(s: &str) -> Result<DateTime<Local>> {
+    parse_local_with_offset(s, None).or_else(|_| {
+        let ndt = NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M")?;
+        Local
+            .from_local_datetime(&ndt)
+            .single()
+            .context("ローカル時刻の単一解決に失敗")
+    })
 }
 
 #[async_trait]
@@ -187,9 +209,10 @@ impl WeatherProvider for OpenMeteo {
             .error_for_status()?
             .json()
             .await?;
+        let offset = resp.utc_offset_seconds;
         let cur = resp.current.context("Open-Meteo: current が無い")?;
         Ok(CurrentWeather {
-            observed_at: parse_local(&cur.time)?,
+            observed_at: parse_local_with_offset(&cur.time, offset)?,
             condition: wmo_to_text(cur.weather_code).to_string(),
             icon: wmo_to_icon(cur.weather_code),
             temperature_c: cur.temperature_2m,
@@ -213,11 +236,12 @@ impl WeatherProvider for OpenMeteo {
             .error_for_status()?
             .json()
             .await?;
+        let offset = resp.utc_offset_seconds;
         let h = resp.hourly.context("Open-Meteo: hourly が無い")?;
         let mut out = Vec::with_capacity(h.time.len());
         for i in 0..h.time.len() {
             out.push(HourlyPoint {
-                time: parse_local(&h.time[i])?,
+                time: parse_local_with_offset(&h.time[i], offset)?,
                 temperature_c: h.temperature_2m[i],
                 precipitation_mm: h.precipitation[i],
                 precipitation_prob_pct: h
