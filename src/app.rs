@@ -53,6 +53,9 @@ pub struct AppState {
     pub show_help: bool,
     /// スピナーのフレーム番号。tick で +1 され、読み込み中表示に使う。
     pub spinner_frame: usize,
+    /// 雨雲レーダーの取得中フラグ。spawn_radar で true、Msg::Radar 受信で false。
+    /// 時刻スクラブやズーム中に「いま処理中」を UI で示すために使う。
+    pub radar_loading: bool,
     pub last_error: Option<String>,
     pub quit: bool,
 }
@@ -172,6 +175,7 @@ pub async fn run(args: Args) -> Result<()> {
         splash_active: true,
         show_help: false,
         spinner_frame: 0,
+        radar_loading: false,
         last_error: None,
         quit: false,
     };
@@ -247,13 +251,14 @@ pub async fn run(args: Args) -> Result<()> {
                     if state.radar_time_offset > 12 {
                         state.radar_time_offset = -6;
                     }
+                    state.radar_loading = true;
                     spawn_radar(provider.clone(), state.config.clone(), state.radar_time_offset, tx.clone());
                 }
             }
             // スピナー進行: 何かしらロード中 or splash 中なら再描画
             _ = spinner_tick.tick() => {
                 state.spinner_frame = state.spinner_frame.wrapping_add(1);
-                if state.splash_active || state.is_loading() {
+                if state.splash_active || state.is_loading() || state.radar_loading {
                     terminal.draw(|f| crate::ui::draw(f, &mut state))?;
                 }
             }
@@ -278,6 +283,7 @@ fn apply_msg(state: &mut AppState, msg: Msg) {
                 state.radar_protocol = Some(p);
             }
             state.radar = Some(r);
+            state.radar_loading = false;
         }
         Msg::Map(m) => state.map = m,
         Msg::Error(e) => state.last_error = Some(e),
@@ -338,15 +344,18 @@ fn handle_event(
         }
         KeyCode::Char('r') => {
             state.last_error = None;
+            state.radar_loading = true;
             spawn_fetch(provider.clone(), state.config.clone(), state.radar_time_offset, tx.clone());
         }
         KeyCode::Char('+') | KeyCode::Char('=') => {
             // 13 まで上げる。z=11-13 は JMA タイル z=10 を内部でクロップして拡大表示。
             state.config.radar.zoom = (state.config.radar.zoom + 1).min(13);
+            state.radar_loading = true;
             spawn_radar(provider.clone(), state.config.clone(), state.radar_time_offset, tx.clone());
         }
         KeyCode::Char('-') | KeyCode::Char('_') => {
             state.config.radar.zoom = state.config.radar.zoom.saturating_sub(1).max(6);
+            state.radar_loading = true;
             spawn_radar(provider.clone(), state.config.clone(), state.radar_time_offset, tx.clone());
         }
         // 移動量は 0.02 度（約 2km）。タイルキャッシュが効くので連打しても軽い。
@@ -357,10 +366,12 @@ fn handle_event(
         // 時系列スクラブ: , (<) 過去、. (>) 未来。clamp は API 側でやる。
         KeyCode::Char(',') | KeyCode::Char('<') => {
             state.radar_time_offset = (state.radar_time_offset - 1).max(-20);
+            state.radar_loading = true;
             spawn_radar(provider.clone(), state.config.clone(), state.radar_time_offset, tx.clone());
         }
         KeyCode::Char('.') | KeyCode::Char('>') => {
             state.radar_time_offset = (state.radar_time_offset + 1).min(20);
+            state.radar_loading = true;
             spawn_radar(provider.clone(), state.config.clone(), state.radar_time_offset, tx.clone());
         }
         // アニメーション再生 toggle。tokio interval で進行は外側で。
@@ -371,6 +382,7 @@ fn handle_event(
         KeyCode::Char('m') | KeyCode::Char('M') => {
             state.config.radar.map_style = state.config.radar.map_style.next();
             provider.set_map_style(state.config.radar.map_style);
+            state.radar_loading = true;
             spawn_radar(provider.clone(), state.config.clone(), state.radar_time_offset, tx.clone());
         }
         _ => return false,
@@ -387,6 +399,7 @@ fn shift_location(
 ) {
     state.config.location.longitude += dlon;
     state.config.location.latitude += dlat;
+    state.radar_loading = true;
     spawn_radar(provider, state.config.clone(), state.radar_time_offset, tx);
 }
 

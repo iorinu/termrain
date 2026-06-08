@@ -56,15 +56,39 @@ fn draw_image_radar(f: &mut Frame, area: Rect, state: &mut AppState) {
     };
     let play = if state.radar_playing { " ▶" } else { "" };
     let map_attrib = state.config.radar.map_style.label();
+    // 取得中はスピナーを先頭に置いてタイトル色も注意色 (WARN) に切替
+    let loading_mark = if state.radar_loading {
+        format!("{} ", state.spinner())
+    } else {
+        String::new()
+    };
     let title = format!(
-        "雨雲レーダー  {} ({}){}  max {:.1}mm/h  [地図: {}]",
+        "{}雨雲レーダー  {} ({}){}  max {:.1}mm/h  [地図: {}]",
+        loading_mark,
         grid.observed_at.format("%H:%M"),
         rel,
         play,
         max_mmh,
         map_attrib,
     );
-    let block = titled_block(&title);
+    let block = if state.radar_loading {
+        // 取得中はタイトル色を WARN（黄）にして「更新中」を強調
+        ratatui::widgets::Block::default()
+            .borders(ratatui::widgets::Borders::ALL)
+            .border_type(ratatui::widgets::BorderType::Rounded)
+            .border_style(
+                ratatui::style::Style::default().fg(super::theme::WARN),
+            )
+            .title(ratatui::text::Span::styled(
+                format!(" {} ", title),
+                ratatui::style::Style::default()
+                    .fg(super::theme::WARN)
+                    .add_modifier(ratatui::style::Modifier::BOLD),
+            ))
+            .style(ratatui::style::Style::default().bg(super::theme::BG))
+    } else {
+        titled_block(&title)
+    };
     let inner = block.inner(area);
     f.render_widget(block, area);
     if let Some(protocol) = state.radar_protocol.as_mut() {
