@@ -144,31 +144,52 @@ impl Default for Config {
 }
 
 impl Config {
-    /// 設定ファイルパス（~/.config/termrain/config.toml 相当）
-    pub fn path() -> Option<PathBuf> {
-        directories::ProjectDirs::from("dev", "termrain", "termrain")
-            .map(|p| p.config_dir().join("config.toml"))
+    /// 設定ディレクトリ（XDG 準拠）。
+    /// 優先順位:
+    ///   1. $XDG_CONFIG_HOME/termrain
+    ///   2. $HOME/.config/termrain
+    /// Mac でも `~/Library/...` ではなく `~/.config/termrain` を使う（ユーザー希望）。
+    pub fn dir() -> Option<PathBuf> {
+        if let Some(xdg) = std::env::var_os("XDG_CONFIG_HOME") {
+            if !xdg.is_empty() {
+                return Some(PathBuf::from(xdg).join("termrain"));
+            }
+        }
+        std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config/termrain"))
     }
 
-    /// 設定ファイルが無ければデフォルトを返す。あれば読み込む。
+    /// 設定ファイルパス（~/.config/termrain/config.toml）
+    pub fn path() -> Option<PathBuf> {
+        Self::dir().map(|d| d.join("config.toml"))
+    }
+
+    /// 設定ファイルを読む。無ければデフォルトを **自動作成して** 返す。
     pub fn load_or_default() -> Result<Self> {
         let Some(path) = Self::path() else {
             return Ok(Self::default());
         };
-        if !path.exists() {
-            return Ok(Self::default());
+        if path.exists() {
+            let text = std::fs::read_to_string(&path)
+                .with_context(|| format!("設定ファイル読込: {}", path.display()))?;
+            let cfg: Config = toml::from_str(&text)
+                .with_context(|| format!("設定ファイルのTOMLパース: {}", path.display()))?;
+            return Ok(cfg);
         }
-        let text = std::fs::read_to_string(&path)
-            .with_context(|| format!("設定ファイル読込: {}", path.display()))?;
-        let cfg: Config = toml::from_str(&text)
-            .with_context(|| format!("設定ファイルのTOMLパース: {}", path.display()))?;
+        // 初回起動: デフォルト設定をファイルに書き出して案内する
+        let cfg = Self::default();
+        if let Err(e) = cfg.save() {
+            // 書き込み失敗してもアプリは動かしたいので警告だけ
+            tracing::warn!("初回設定ファイル書き込み失敗 {}: {e:#}", path.display());
+        } else {
+            tracing::info!("初回設定ファイルを作成: {}", path.display());
+        }
         Ok(cfg)
     }
 
     /// 設定ファイルへの保存（親ディレクトリが無ければ作る）
     pub fn save(&self) -> Result<()> {
         let Some(path) = Self::path() else {
-            anyhow::bail!("ProjectDirs を取得できませんでした");
+            anyhow::bail!("HOME も XDG_CONFIG_HOME も取得できませんでした");
         };
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
@@ -178,4 +199,15 @@ impl Config {
             .with_context(|| format!("設定ファイル書き込み: {}", path.display()))?;
         Ok(())
     }
+}
+
+/// キャッシュディレクトリ（XDG 準拠）。
+/// ログや地図タイルキャッシュなど、消えても困らないデータの置き場所。
+pub fn cache_dir() -> Option<PathBuf> {
+    if let Some(xdg) = std::env::var_os("XDG_CACHE_HOME") {
+        if !xdg.is_empty() {
+            return Some(PathBuf::from(xdg).join("termrain"));
+        }
+    }
+    std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".cache/termrain"))
 }

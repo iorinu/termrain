@@ -171,8 +171,7 @@ fn unwrap_or_warn(r: Result<Vec<Polyline>>, label: &str) -> Vec<Polyline> {
 }
 
 fn cache_dir() -> Option<PathBuf> {
-    directories::ProjectDirs::from("dev", "termrain", "termrain")
-        .map(|p| p.cache_dir().to_path_buf())
+    crate::config::cache_dir()
 }
 
 /// 指定 URL から GeoJSON を取得（キャッシュ有り）、ポリライン列にパースする。

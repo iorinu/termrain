@@ -43,9 +43,7 @@ async fn main() -> Result<()> {
 fn init_logging() -> Result<tracing_appender::non_blocking::WorkerGuard> {
     use tracing_subscriber::EnvFilter;
 
-    let log_dir = directories::ProjectDirs::from("dev", "termrain", "termrain")
-        .map(|p| p.cache_dir().to_path_buf())
-        .unwrap_or_else(|| std::env::temp_dir().join("termrain"));
+    let log_dir = config::cache_dir().unwrap_or_else(|| std::env::temp_dir().join("termrain"));
     std::fs::create_dir_all(&log_dir)?;
 
     let file_appender = tracing_appender::rolling::daily(&log_dir, "termrain.log");
