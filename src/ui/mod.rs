@@ -162,12 +162,15 @@ fn draw_footer(f: &mut Frame, area: Rect, state: &AppState) {
         Span::styled(format!(" {} ", map_label), label_style),
     ];
     if let Some(err) = &state.last_error {
+        // フッターは1行なので、長いエラー（URLや stack 含む）は要約して表示。
+        // 詳細はログファイルに記録済み。
+        let short = summarize_error(err, 64);
         spans.push(Span::styled(
             "  ⚠ ",
             Style::default().fg(theme::ERROR).bg(theme::BG),
         ));
         spans.push(Span::styled(
-            err.clone(),
+            short,
             Style::default().fg(theme::ERROR).bg(theme::BG),
         ));
     }
@@ -175,6 +178,41 @@ fn draw_footer(f: &mut Frame, area: Rect, state: &AppState) {
         Paragraph::new(Line::from(spans)).style(Style::default().bg(theme::BG)),
         area,
     );
+}
+
+/// エラーメッセージを1行表示用に短く整形する。
+/// - URL や `for url (https://...)` を除去
+/// - 改行を空白に
+/// - 指定幅で末尾省略
+fn summarize_error(err: &str, max_width: usize) -> String {
+    use unicode_width::UnicodeWidthStr;
+    let mut s: String = err.replace('\n', " ");
+    // "for url (...)" 以降を削除（reqwest の長い URL を消す）
+    if let Some(idx) = s.find(" for url ") {
+        s.truncate(idx);
+    }
+    // "(https://..." も削除
+    if let Some(idx) = s.find("(https://") {
+        s.truncate(idx);
+    }
+    // 連続空白を 1 つに
+    let s: String = s.split_whitespace().collect::<Vec<_>>().join(" ");
+    // 幅で切り詰め
+    if UnicodeWidthStr::width(s.as_str()) <= max_width {
+        return s;
+    }
+    let mut out = String::new();
+    let mut w = 0;
+    for c in s.chars() {
+        let cw = UnicodeWidthStr::width(c.to_string().as_str());
+        if w + cw + 1 > max_width {
+            break;
+        }
+        out.push(c);
+        w += cw;
+    }
+    out.push('…');
+    out
 }
 
 /// 共通パネル枠（角丸・テーマ色）
