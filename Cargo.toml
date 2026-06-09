@@ -2,6 +2,14 @@
 name = "termrain"
 version = "0.1.0"
 edition = "2024"
+description = "Terminal weather forecast and rain radar TUI (JMA + Open-Meteo, Kitty graphics)"
+license = "MIT"
+authors = ["iorinu"]
+repository = "https://github.com/iorinu/termrain"
+homepage = "https://github.com/iorinu/termrain"
+readme = "README.md"
+keywords = ["tui", "weather", "radar", "ratatui", "cli"]
+categories = ["command-line-utilities"]
 
 [dependencies]
 anyhow = "1.0.102"
