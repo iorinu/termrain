@@ -34,6 +34,7 @@ pub struct HourlyPoint {
     pub temperature_c: f64,
     pub precipitation_mm: f64,
     pub precipitation_prob_pct: Option<f64>,
+    pub icon: WeatherIcon,
 }
 
 /// 日別予報の 1 日

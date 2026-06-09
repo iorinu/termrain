@@ -119,6 +119,7 @@ struct HourlyBlock {
     temperature_2m: Vec<f64>,
     precipitation: Vec<f64>,
     precipitation_probability: Option<Vec<Option<f64>>>,
+    weather_code: Option<Vec<u32>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -251,7 +252,7 @@ impl WeatherProvider for OpenMeteo {
     async fn hourly(&self, lat: f64, lon: f64) -> Result<Vec<HourlyPoint>> {
         let url = format!(
             "https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}\
-             &hourly=temperature_2m,precipitation,precipitation_probability\
+             &hourly=temperature_2m,precipitation,precipitation_probability,weather_code\
              &forecast_days=2&timezone=auto"
         );
         let resp: ForecastResponse = self
@@ -266,6 +267,12 @@ impl WeatherProvider for OpenMeteo {
         let h = resp.hourly.context("Open-Meteo: hourly が無い")?;
         let mut out = Vec::with_capacity(h.time.len());
         for i in 0..h.time.len() {
+            let icon = h
+                .weather_code
+                .as_ref()
+                .and_then(|v| v.get(i).copied())
+                .map(wmo_to_icon)
+                .unwrap_or(WeatherIcon::Unknown);
             out.push(HourlyPoint {
                 time: parse_local_with_offset(&h.time[i], offset)?,
                 temperature_c: h.temperature_2m[i],
@@ -274,6 +281,7 @@ impl WeatherProvider for OpenMeteo {
                     .precipitation_probability
                     .as_ref()
                     .and_then(|v| v.get(i).copied().flatten()),
+                icon,
             });
         }
         Ok(out)

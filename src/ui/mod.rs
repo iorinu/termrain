@@ -11,6 +11,7 @@
 mod current;
 mod help;
 mod hourly;
+mod hourly_list;
 mod radar;
 mod splash;
 pub mod theme;
@@ -74,9 +75,19 @@ pub fn draw(f: &mut Frame, state: &mut AppState) {
             Constraint::Length(side_w),
         ])
         .split(chunks[1]);
-    current::draw(f, top[0], state);
+
+    // 左ペインを縦に2分割: 上=現在天気 (10行), 下=週間予報 (残り)
+    let left = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(10), Constraint::Min(0)])
+        .split(top[0]);
+    current::draw(f, left[0], state);
+    weekly::draw(f, left[1], state);
+
     radar::draw(f, top[1], state);
-    weekly::draw(f, top[2], state);
+
+    // 右パネル: Yahoo風 時間ごとリスト
+    hourly_list::draw(f, top[2], state);
 
     hourly::draw(f, chunks[2], state);
     draw_footer(f, chunks[3], state);
