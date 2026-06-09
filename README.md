@@ -4,6 +4,14 @@
 
 Kitty graphics protocol を活用して、カラー地図の上に雨雲を重ねる Yahoo 雨雲レーダー風の表示を端末内で実現する。
 
+![termrain main screen](docs/screenshots/main.png)
+
+<!-- 追加のスクショは下記の形式で。ファイルを docs/screenshots/ に置けば表示されます。
+![Help modal](docs/screenshots/help.png)
+![Future radar scrub](docs/screenshots/radar-future.png)
+-->
+
+
 ## 主な機能
 
 - **現在の天気** ／ **時間別予報** (24-48h) ／ **週間予報** (7日)
