@@ -99,17 +99,71 @@ pub async fn run(args: Args) -> Result<()> {
         config.ui.language = lang;
     }
 
+    // --list-city: 候補を表示して終了
+    if let Some(query) = args.list_city.as_ref() {
+        let client = reqwest::Client::builder()
+            .user_agent("termrain/0.1")
+            .build()?;
+        let hits = crate::api::geocoding::search_many(&client, query, config.ui.language, 10).await?;
+        if hits.is_empty() {
+            eprintln!("No matches for: {query}");
+        } else {
+            println!("Candidates for \"{}\":\n", query);
+            for (i, h) in hits.iter().enumerate() {
+                let place = match (h.admin1.as_deref(), h.country_name.as_deref()) {
+                    (Some(a), Some(c)) => format!("{}, {}", a, c),
+                    (Some(a), None) => a.to_string(),
+                    (None, Some(c)) => c.to_string(),
+                    _ => String::new(),
+                };
+                println!(
+                    "  {:>2}. {:<24} {:<32}  lat={:>8.4}  lon={:>9.4}",
+                    i + 1,
+                    h.name,
+                    place,
+                    h.latitude,
+                    h.longitude,
+                );
+            }
+            println!("\nUse one of:");
+            if let Some(top) = hits.first() {
+                println!(
+                    "  termrain --lat {:.4} --lon {:.4}",
+                    top.latitude, top.longitude
+                );
+            }
+        }
+        return Ok(());
+    }
+
     // 2) CLI 引数で上書き
     if let Some(city) = &args.city {
         let client = reqwest::Client::builder()
             .user_agent("termrain/0.1")
             .build()?;
-        match crate::api::geocoding::search(&client, city, config.ui.language).await {
-            Ok(hit) => {
-                config.location.name = hit.name;
+        match crate::api::geocoding::search_many(&client, city, config.ui.language, 5).await {
+            Ok(hits) if !hits.is_empty() => {
+                let hit = &hits[0];
+                config.location.name = hit.name.clone();
                 config.location.latitude = hit.latitude;
                 config.location.longitude = hit.longitude;
-                config.location.country = hit.country;
+                config.location.country = hit.country.clone();
+                // 同名候補が複数あれば「他にもこれだけある」と案内
+                if hits.len() > 1 {
+                    let chosen_loc = match (&hit.admin1, &hit.country_name) {
+                        (Some(a), Some(c)) => format!("{}, {}", a, c),
+                        (Some(a), None) => a.clone(),
+                        (None, Some(c)) => c.clone(),
+                        _ => String::new(),
+                    };
+                    eprintln!(
+                        "\"{}\" → {} ({}) を採用。他の候補は `termrain --list-city {}` で確認可。",
+                        city, hit.name, chosen_loc, city
+                    );
+                }
+            }
+            Ok(_) => {
+                eprintln!("該当する地点が見つかりません: {city}");
             }
             Err(e) => {
                 eprintln!("地点検索に失敗: {e:#}");

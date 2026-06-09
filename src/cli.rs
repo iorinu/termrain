@@ -37,4 +37,9 @@ pub struct Args {
     /// CLI で指定した内容を ~/.config/termrain/config.toml に保存して次回も使う
     #[arg(long)]
     pub save: bool,
+
+    /// 同名都市を区別するため、検索候補を最大10件表示して終了する。
+    /// 例: `termrain --list-city Ueno`  → Tokyo / Mie などが並ぶ
+    #[arg(long = "list-city", value_name = "QUERY")]
+    pub list_city: Option<String>,
 }
