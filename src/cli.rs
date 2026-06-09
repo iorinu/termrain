@@ -29,4 +29,12 @@ pub struct Args {
     /// TUI を起動せず、現在の天気を JSON でダンプ（デバッグ用）
     #[arg(long)]
     pub dump: bool,
+
+    /// 表示言語を上書き (en / ja / english / japanese)
+    #[arg(long = "lang", value_name = "LANG")]
+    pub lang: Option<crate::i18n::Language>,
+
+    /// CLI で指定した内容を ~/.config/termrain/config.toml に保存して次回も使う
+    #[arg(long)]
+    pub save: bool,
 }

@@ -94,6 +94,11 @@ pub async fn run(args: Args) -> Result<()> {
     // 1) 設定読込（無ければデフォルト）
     let mut config = Config::load_or_default()?;
 
+    // 1.5) --lang は他の処理に先んじて反映（geocoding の language にも使うため）
+    if let Some(lang) = args.lang {
+        config.ui.language = lang;
+    }
+
     // 2) CLI 引数で上書き
     if let Some(city) = &args.city {
         let client = reqwest::Client::builder()
@@ -123,6 +128,16 @@ pub async fn run(args: Args) -> Result<()> {
             } else {
                 config.location.country = "".into();
             }
+        }
+    }
+
+    // 2.5) --save: ここまでで決まった設定を ~/.config/termrain/config.toml に保存
+    //      （CLI 引数で指定した内容を次回以降のデフォルトにする）
+    if args.save {
+        if let Err(e) = config.save() {
+            eprintln!("設定の保存に失敗: {e:#}");
+        } else if let Some(p) = Config::path() {
+            eprintln!("設定を保存しました: {}", p.display());
         }
     }
 
