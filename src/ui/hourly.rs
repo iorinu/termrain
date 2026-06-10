@@ -1,16 +1,16 @@
 // 時間別予報グラフ。
 // ratatui の Chart は数値配列をいい感じに折れ線グラフにしてくれる。
 
+use super::theme;
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::Style;
-use super::theme;
 use ratatui::symbols;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Axis, Chart, Dataset, GraphType, Paragraph};
 
-use crate::app::AppState;
 use super::titled_block;
+use crate::app::AppState;
 
 pub fn draw(f: &mut Frame, area: Rect, state: &AppState) {
     let s = crate::i18n::strings(state.config.ui.language);
@@ -55,7 +55,10 @@ pub fn draw(f: &mut Frame, area: Rect, state: &AppState) {
     ];
 
     let temp_min = temp_data.iter().map(|p| p.1).fold(f64::INFINITY, f64::min);
-    let temp_max = temp_data.iter().map(|p| p.1).fold(f64::NEG_INFINITY, f64::max);
+    let temp_max = temp_data
+        .iter()
+        .map(|p| p.1)
+        .fold(f64::NEG_INFINITY, f64::max);
     // Y 軸の余白は最小限にして折れ線をダイナミックに見せる
     let pad = ((temp_max - temp_min) * 0.1).max(0.5);
 
@@ -127,7 +130,9 @@ pub fn draw(f: &mut Frame, area: Rect, state: &AppState) {
                 }
             })
             .collect();
-        let label = s.precip_amount_label.replace("{:.1}", &format!("{:.1}", max_p));
+        let label = s
+            .precip_amount_label
+            .replace("{:.1}", &format!("{:.1}", max_p));
         (bars, label)
     } else if has_pop {
         // 降水確率 (0-100%)
@@ -151,10 +156,7 @@ pub fn draw(f: &mut Frame, area: Rect, state: &AppState) {
     };
 
     let bar_line = Line::from(Span::styled(bars, Style::default().fg(theme::RAIN)));
-    let label = Line::from(Span::styled(
-        label_text,
-        Style::default().fg(theme::SUBTLE),
-    ));
+    let label = Line::from(Span::styled(label_text, Style::default().fg(theme::SUBTLE)));
     let p = Paragraph::new(vec![bar_line, label]);
     f.render_widget(p, split[1]);
 }

@@ -32,42 +32,182 @@ pub struct City {
 pub fn cities() -> &'static [City] {
     &[
         // 日本
-        City { name: "札幌",   lat: 43.0642, lon: 141.3469 },
-        City { name: "仙台",   lat: 38.2682, lon: 140.8694 },
-        City { name: "新潟",   lat: 37.9026, lon: 139.0232 },
-        City { name: "東京",   lat: 35.6812, lon: 139.7671 },
-        City { name: "横浜",   lat: 35.4437, lon: 139.6380 },
-        City { name: "名古屋", lat: 35.1815, lon: 136.9066 },
-        City { name: "京都",   lat: 35.0116, lon: 135.7681 },
-        City { name: "大阪",   lat: 34.6937, lon: 135.5023 },
-        City { name: "神戸",   lat: 34.6913, lon: 135.1830 },
-        City { name: "広島",   lat: 34.3853, lon: 132.4553 },
-        City { name: "高知",   lat: 33.5597, lon: 133.5311 },
-        City { name: "福岡",   lat: 33.5904, lon: 130.4017 },
-        City { name: "鹿児島", lat: 31.5969, lon: 130.5571 },
-        City { name: "那覇",   lat: 26.2124, lon: 127.6809 },
-        City { name: "金沢",   lat: 36.5613, lon: 136.6562 },
-        City { name: "静岡",   lat: 34.9756, lon: 138.3828 },
-        City { name: "青森",   lat: 40.8244, lon: 140.7400 },
-        City { name: "盛岡",   lat: 39.7036, lon: 141.1527 },
-        City { name: "松山",   lat: 33.8392, lon: 132.7657 },
-        City { name: "高松",   lat: 34.3401, lon: 134.0434 },
+        City {
+            name: "札幌",
+            lat: 43.0642,
+            lon: 141.3469,
+        },
+        City {
+            name: "仙台",
+            lat: 38.2682,
+            lon: 140.8694,
+        },
+        City {
+            name: "新潟",
+            lat: 37.9026,
+            lon: 139.0232,
+        },
+        City {
+            name: "東京",
+            lat: 35.6812,
+            lon: 139.7671,
+        },
+        City {
+            name: "横浜",
+            lat: 35.4437,
+            lon: 139.6380,
+        },
+        City {
+            name: "名古屋",
+            lat: 35.1815,
+            lon: 136.9066,
+        },
+        City {
+            name: "京都",
+            lat: 35.0116,
+            lon: 135.7681,
+        },
+        City {
+            name: "大阪",
+            lat: 34.6937,
+            lon: 135.5023,
+        },
+        City {
+            name: "神戸",
+            lat: 34.6913,
+            lon: 135.1830,
+        },
+        City {
+            name: "広島",
+            lat: 34.3853,
+            lon: 132.4553,
+        },
+        City {
+            name: "高知",
+            lat: 33.5597,
+            lon: 133.5311,
+        },
+        City {
+            name: "福岡",
+            lat: 33.5904,
+            lon: 130.4017,
+        },
+        City {
+            name: "鹿児島",
+            lat: 31.5969,
+            lon: 130.5571,
+        },
+        City {
+            name: "那覇",
+            lat: 26.2124,
+            lon: 127.6809,
+        },
+        City {
+            name: "金沢",
+            lat: 36.5613,
+            lon: 136.6562,
+        },
+        City {
+            name: "静岡",
+            lat: 34.9756,
+            lon: 138.3828,
+        },
+        City {
+            name: "青森",
+            lat: 40.8244,
+            lon: 140.7400,
+        },
+        City {
+            name: "盛岡",
+            lat: 39.7036,
+            lon: 141.1527,
+        },
+        City {
+            name: "松山",
+            lat: 33.8392,
+            lon: 132.7657,
+        },
+        City {
+            name: "高松",
+            lat: 34.3401,
+            lon: 134.0434,
+        },
         // 世界の主要都市
-        City { name: "Seoul",     lat: 37.5665, lon: 126.9780 },
-        City { name: "Beijing",   lat: 39.9042, lon: 116.4074 },
-        City { name: "Shanghai",  lat: 31.2304, lon: 121.4737 },
-        City { name: "Taipei",    lat: 25.0330, lon: 121.5654 },
-        City { name: "Manila",    lat: 14.5995, lon: 120.9842 },
-        City { name: "Bangkok",   lat: 13.7563, lon: 100.5018 },
-        City { name: "Singapore", lat: 1.3521,  lon: 103.8198 },
-        City { name: "Sydney",    lat: -33.8688, lon: 151.2093 },
-        City { name: "New York",  lat: 40.7128, lon: -74.0060 },
-        City { name: "L.A.",      lat: 34.0522, lon: -118.2437 },
-        City { name: "London",    lat: 51.5074, lon: -0.1278 },
-        City { name: "Paris",     lat: 48.8566, lon: 2.3522 },
-        City { name: "Berlin",    lat: 52.5200, lon: 13.4050 },
-        City { name: "Rome",      lat: 41.9028, lon: 12.4964 },
-        City { name: "Moscow",    lat: 55.7558, lon: 37.6173 },
+        City {
+            name: "Seoul",
+            lat: 37.5665,
+            lon: 126.9780,
+        },
+        City {
+            name: "Beijing",
+            lat: 39.9042,
+            lon: 116.4074,
+        },
+        City {
+            name: "Shanghai",
+            lat: 31.2304,
+            lon: 121.4737,
+        },
+        City {
+            name: "Taipei",
+            lat: 25.0330,
+            lon: 121.5654,
+        },
+        City {
+            name: "Manila",
+            lat: 14.5995,
+            lon: 120.9842,
+        },
+        City {
+            name: "Bangkok",
+            lat: 13.7563,
+            lon: 100.5018,
+        },
+        City {
+            name: "Singapore",
+            lat: 1.3521,
+            lon: 103.8198,
+        },
+        City {
+            name: "Sydney",
+            lat: -33.8688,
+            lon: 151.2093,
+        },
+        City {
+            name: "New York",
+            lat: 40.7128,
+            lon: -74.0060,
+        },
+        City {
+            name: "L.A.",
+            lat: 34.0522,
+            lon: -118.2437,
+        },
+        City {
+            name: "London",
+            lat: 51.5074,
+            lon: -0.1278,
+        },
+        City {
+            name: "Paris",
+            lat: 48.8566,
+            lon: 2.3522,
+        },
+        City {
+            name: "Berlin",
+            lat: 52.5200,
+            lon: 13.4050,
+        },
+        City {
+            name: "Rome",
+            lat: 41.9028,
+            lon: 12.4964,
+        },
+        City {
+            name: "Moscow",
+            lat: 55.7558,
+            lon: 37.6173,
+        },
     ]
 }
 

@@ -9,13 +9,11 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use super::{
-    CurrentWeather, DailyPoint, HourlyPoint, RadarGrid, WeatherIcon, WeatherProvider,
-};
 use super::jma::{
     blend, draw_cross, draw_legend_bar, lonlat_to_tile, rain_to_yahoo, sample_bilinear,
     tile_to_lonlat,
 };
+use super::{CurrentWeather, DailyPoint, HourlyPoint, RadarGrid, WeatherIcon, WeatherProvider};
 
 type MapTileKey = (&'static str, u8, u32, u32);
 
@@ -76,7 +74,10 @@ impl OpenMeteo {
             image::RgbaImage::from_pixel(256, 256, image::Rgba([240, 240, 240, 255]))
         };
         let arc = Arc::new(img);
-        self.map_image_cache.lock().unwrap().insert(key, arc.clone());
+        self.map_image_cache
+            .lock()
+            .unwrap()
+            .insert(key, arc.clone());
         Ok(arc)
     }
 }
@@ -347,7 +348,8 @@ impl WeatherProvider for OpenMeteo {
         for j in 0..height {
             let lat_j = view_lat_n - (view_lat_n - view_lat_s) * (j as f64) / (height as f64 - 1.0);
             for i in 0..width {
-                let lon_i = view_lon_w + (view_lon_e - view_lon_w) * (i as f64) / (width as f64 - 1.0);
+                let lon_i =
+                    view_lon_w + (view_lon_e - view_lon_w) * (i as f64) / (width as f64 - 1.0);
                 lats.push(format!("{lat_j:.4}"));
                 lons.push(format!("{lon_i:.4}"));
             }

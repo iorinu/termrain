@@ -95,9 +95,7 @@ fn draw_image_radar(f: &mut Frame, area: Rect, state: &mut AppState) {
         ratatui::widgets::Block::default()
             .borders(ratatui::widgets::Borders::ALL)
             .border_type(ratatui::widgets::BorderType::Rounded)
-            .border_style(
-                ratatui::style::Style::default().fg(super::theme::WARN),
-            )
+            .border_style(ratatui::style::Style::default().fg(super::theme::WARN))
             .title(ratatui::text::Span::styled(
                 format!(" {} ", title),
                 ratatui::style::Style::default()
@@ -137,7 +135,9 @@ pub fn draw(f: &mut Frame, area: Rect, state: &mut AppState) {
             .border_style(Style::default().fg(Color::Gray))
             .title(Span::styled(
                 "雨雲レーダー (読み込み中…)",
-                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
             ))
             .style(radar_bg);
         f.render_widget(block, area);
@@ -398,24 +398,21 @@ pub fn draw(f: &mut Frame, area: Rect, state: &mut AppState) {
             // 縦方向に並べ、最下段が弱い雨、上に行くほど強い雨。
             // 雨雲データの色マッピングと正確に一致させる。
             let legend: [(&str, Color); 8] = [
-                ("1",    Color::Rgb(170, 220, 240)),
-                ("5",    Color::Rgb(100, 200, 240)),
-                ("10",   Color::Rgb(50, 100, 220)),
-                ("20",   Color::Rgb(250, 240, 80)),
-                ("30",   Color::Rgb(250, 170, 50)),
-                ("50",   Color::Rgb(240, 70, 70)),
-                ("80",   Color::Rgb(200, 60, 200)),
-                ("80+",  Color::Rgb(120, 30, 130)),
+                ("1", Color::Rgb(170, 220, 240)),
+                ("5", Color::Rgb(100, 200, 240)),
+                ("10", Color::Rgb(50, 100, 220)),
+                ("20", Color::Rgb(250, 240, 80)),
+                ("30", Color::Rgb(250, 170, 50)),
+                ("50", Color::Rgb(240, 70, 70)),
+                ("80", Color::Rgb(200, 60, 200)),
+                ("80+", Color::Rgb(120, 30, 130)),
             ];
             let legend_x = w - 8.0;
             // 凡例タイトル「mm/h」
             ctx.print(
                 legend_x,
                 legend.len() as f64 + 0.5,
-                Span::styled(
-                    "mm/h",
-                    Style::default().fg(Color::Rgb(150, 160, 180)),
-                ),
+                Span::styled("mm/h", Style::default().fg(Color::Rgb(150, 160, 180))),
             );
             for (i, (label, color)) in legend.iter().enumerate() {
                 let y = (legend.len() - 1 - i) as f64 + 0.5;

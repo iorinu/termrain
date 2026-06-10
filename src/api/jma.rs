@@ -14,9 +14,7 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, OnceLock};
 
-use super::{
-    CurrentWeather, DailyPoint, HourlyPoint, RadarGrid, WeatherIcon, WeatherProvider,
-};
+use super::{CurrentWeather, DailyPoint, HourlyPoint, RadarGrid, WeatherIcon, WeatherProvider};
 
 /// 1 タイル分の降水量グリッド（128x128, mm/h）。
 /// 取得後はメモリキャッシュに保持し、隣接タイルへの移動でも DL し直さない。
@@ -146,7 +144,10 @@ impl Jma {
             image::RgbaImage::from_pixel(256, 256, image::Rgba([240, 240, 240, 255]))
         };
         let arc = Arc::new(img);
-        self.map_image_cache.lock().unwrap().insert(key, arc.clone());
+        self.map_image_cache
+            .lock()
+            .unwrap()
+            .insert(key, arc.clone());
         Ok(arc)
     }
 
@@ -248,19 +249,97 @@ fn areas() -> &'static [AreaEntry] {
     // 47 都道府県すべてではなく、主要都市のサブセット。
     // 不足するエリアは将来追加（area.json を取り込んで自動生成しても良い）。
     static TABLE: &[AreaEntry] = &[
-        AreaEntry { office: "016000", class10: "016010", name: "札幌", lat: 43.0642, lon: 141.3469 },
-        AreaEntry { office: "020000", class10: "020010", name: "青森", lat: 40.8244, lon: 140.7400 },
-        AreaEntry { office: "040000", class10: "040010", name: "仙台", lat: 38.2682, lon: 140.8694 },
-        AreaEntry { office: "130000", class10: "130010", name: "東京", lat: 35.6812, lon: 139.7671 },
-        AreaEntry { office: "140000", class10: "140010", name: "横浜", lat: 35.4478, lon: 139.6425 },
-        AreaEntry { office: "150000", class10: "150010", name: "新潟", lat: 37.9026, lon: 139.0232 },
-        AreaEntry { office: "230000", class10: "230010", name: "名古屋", lat: 35.1815, lon: 136.9066 },
-        AreaEntry { office: "270000", class10: "270000", name: "大阪", lat: 34.6937, lon: 135.5023 },
-        AreaEntry { office: "280000", class10: "280010", name: "神戸", lat: 34.6913, lon: 135.1830 },
-        AreaEntry { office: "340000", class10: "340010", name: "広島", lat: 34.3853, lon: 132.4553 },
-        AreaEntry { office: "390000", class10: "390010", name: "高知", lat: 33.5597, lon: 133.5311 },
-        AreaEntry { office: "400000", class10: "400010", name: "福岡", lat: 33.5904, lon: 130.4017 },
-        AreaEntry { office: "471000", class10: "471010", name: "那覇", lat: 26.2124, lon: 127.6809 },
+        AreaEntry {
+            office: "016000",
+            class10: "016010",
+            name: "札幌",
+            lat: 43.0642,
+            lon: 141.3469,
+        },
+        AreaEntry {
+            office: "020000",
+            class10: "020010",
+            name: "青森",
+            lat: 40.8244,
+            lon: 140.7400,
+        },
+        AreaEntry {
+            office: "040000",
+            class10: "040010",
+            name: "仙台",
+            lat: 38.2682,
+            lon: 140.8694,
+        },
+        AreaEntry {
+            office: "130000",
+            class10: "130010",
+            name: "東京",
+            lat: 35.6812,
+            lon: 139.7671,
+        },
+        AreaEntry {
+            office: "140000",
+            class10: "140010",
+            name: "横浜",
+            lat: 35.4478,
+            lon: 139.6425,
+        },
+        AreaEntry {
+            office: "150000",
+            class10: "150010",
+            name: "新潟",
+            lat: 37.9026,
+            lon: 139.0232,
+        },
+        AreaEntry {
+            office: "230000",
+            class10: "230010",
+            name: "名古屋",
+            lat: 35.1815,
+            lon: 136.9066,
+        },
+        AreaEntry {
+            office: "270000",
+            class10: "270000",
+            name: "大阪",
+            lat: 34.6937,
+            lon: 135.5023,
+        },
+        AreaEntry {
+            office: "280000",
+            class10: "280010",
+            name: "神戸",
+            lat: 34.6913,
+            lon: 135.1830,
+        },
+        AreaEntry {
+            office: "340000",
+            class10: "340010",
+            name: "広島",
+            lat: 34.3853,
+            lon: 132.4553,
+        },
+        AreaEntry {
+            office: "390000",
+            class10: "390010",
+            name: "高知",
+            lat: 33.5597,
+            lon: 133.5311,
+        },
+        AreaEntry {
+            office: "400000",
+            class10: "400010",
+            name: "福岡",
+            lat: 33.5904,
+            lon: 130.4017,
+        },
+        AreaEntry {
+            office: "471000",
+            class10: "471010",
+            name: "那覇",
+            lat: 26.2124,
+            lon: 127.6809,
+        },
     ];
     TABLE
 }
@@ -344,7 +423,9 @@ impl WeatherProvider for Jma {
 
         // 気温・湿度・風は Open-Meteo の実況値を採用（JMA は配信していない）。
         // forecast の最高気温は概況の「今日の予想最高気温」相当なのでフォールバックに残す。
-        let fallback_temp = fetch_today_temp(&self.client, area).await.unwrap_or(f64::NAN);
+        let fallback_temp = fetch_today_temp(&self.client, area)
+            .await
+            .unwrap_or(f64::NAN);
         let om_now = self.om().current(lat, lon).await.ok();
         // 短い条件文字列 / アイコンも Open-Meteo の値を採用する。
         // JMA 概況テキスト(condition変数)は長文の日本語で、英語UIにはそぐわないし
@@ -460,22 +541,38 @@ impl WeatherProvider for Jma {
         let weather_codes: Vec<String> = weather_area
             .get("weatherCodes")
             .and_then(|v| v.as_array())
-            .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+            .map(|a| {
+                a.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect()
+            })
             .unwrap_or_default();
         let pops: Vec<Option<f64>> = weather_area
             .get("pops")
             .and_then(|v| v.as_array())
-            .map(|a| a.iter().map(|v| v.as_str().and_then(|s| s.parse().ok())).collect())
+            .map(|a| {
+                a.iter()
+                    .map(|v| v.as_str().and_then(|s| s.parse().ok()))
+                    .collect()
+            })
             .unwrap_or_default();
         let tmax: Vec<Option<f64>> = temp_area
             .get("tempsMax")
             .and_then(|v| v.as_array())
-            .map(|a| a.iter().map(|v| v.as_str().and_then(|s| s.parse().ok())).collect())
+            .map(|a| {
+                a.iter()
+                    .map(|v| v.as_str().and_then(|s| s.parse().ok()))
+                    .collect()
+            })
             .unwrap_or_default();
         let tmin: Vec<Option<f64>> = temp_area
             .get("tempsMin")
             .and_then(|v| v.as_array())
-            .map(|a| a.iter().map(|v| v.as_str().and_then(|s| s.parse().ok())).collect())
+            .map(|a| {
+                a.iter()
+                    .map(|v| v.as_str().and_then(|s| s.parse().ok()))
+                    .collect()
+            })
             .unwrap_or_default();
 
         let mut out = Vec::new();
@@ -494,7 +591,10 @@ impl WeatherProvider for Jma {
 
         // JMA 週間予報の初日（=今日）の最高気温は未確定のことが多い。
         // 空欄を Open-Meteo の同日データで埋めて表示の歯抜けを防ぐ。
-        if out.iter().any(|d| d.temp_max_c.is_none() || d.temp_min_c.is_none()) {
+        if out
+            .iter()
+            .any(|d| d.temp_max_c.is_none() || d.temp_min_c.is_none())
+        {
             if let Ok(om) = self.om().daily(lat, lon).await {
                 for d in out.iter_mut() {
                     if let Some(o) = om.iter().find(|o| o.date == d.date) {
@@ -577,7 +677,10 @@ impl WeatherProvider for Jma {
         let elem: &'static str = "none";
         tracing::info!(
             "radar request time_offset={} basetime={} validtime={} elem={}",
-            time_offset, basetime, validtime, elem
+            time_offset,
+            basetime,
+            validtime,
+            elem
         );
 
         // 地図と雨雲でズームを分離する。
@@ -635,7 +738,10 @@ impl WeatherProvider for Jma {
                     let bt2 = basetime.clone();
                     let vt2 = validtime.clone();
                     rain_img_fetches.push(async move {
-                        let g = self.fetch_rain_image(rain_z, rtx, rty, &bt2, &vt2, elem).await.ok();
+                        let g = self
+                            .fetch_rain_image(rain_z, rtx, rty, &bt2, &vt2, elem)
+                            .await
+                            .ok();
                         ((dx, dy), g)
                     });
                 }
@@ -690,10 +796,10 @@ impl WeatherProvider for Jma {
         let mut map_dots = vec![vec![false; VIEW_W]; VIEW_H];
         for j in 0..VIEW_H {
             for i in 0..VIEW_W {
-                let v_lon = view_lon_w
-                    + (view_lon_e - view_lon_w) * (i as f64 + 0.5) / VIEW_W as f64;
-                let v_lat = view_lat_n
-                    - (view_lat_n - view_lat_s) * (j as f64 + 0.5) / VIEW_H as f64;
+                let v_lon =
+                    view_lon_w + (view_lon_e - view_lon_w) * (i as f64 + 0.5) / VIEW_W as f64;
+                let v_lat =
+                    view_lat_n - (view_lat_n - view_lat_s) * (j as f64 + 0.5) / VIEW_H as f64;
                 let (_zz, tx, ty) = lonlat_to_tile(v_lon, v_lat, z);
                 let dx = tx as i32 - cx as i32;
                 let dy = ty as i32 - cy as i32;
@@ -785,10 +891,8 @@ fn build_composite_image(
     for j in 0..out_h {
         for i in 0..out_w {
             // ピクセル位置 → 地理座標（view 範囲を比例分割）
-            let v_lon = view_lon_w
-                + (view_lon_e - view_lon_w) * (i as f64 + 0.5) / out_w as f64;
-            let v_lat = view_lat_n
-                - (view_lat_n - view_lat_s) * (j as f64 + 0.5) / out_h as f64;
+            let v_lon = view_lon_w + (view_lon_e - view_lon_w) * (i as f64 + 0.5) / out_w as f64;
+            let v_lat = view_lat_n - (view_lat_n - view_lat_s) * (j as f64 + 0.5) / out_h as f64;
 
             // ---- 地図サンプル (map_z タイル空間) ----
             let mut base = Rgba([255, 255, 255, 255]);
@@ -886,19 +990,19 @@ pub(crate) fn rain_to_yahoo(mmh: f64) -> Option<(u8, u8, u8, u8)> {
 /// 凡例カラーバー用：14 段階のラベルと色。
 /// ラベルは「下限値」を表示する（例 "8" は 8〜12mm/h の区間）。
 pub(crate) const LEGEND_STOPS: &[(&str, (u8, u8, u8))] = &[
-    ("1",   (200, 230, 255)),
-    ("2",   (160, 210, 250)),
-    ("4",   (90, 170, 240)),
-    ("8",   (40, 130, 230)),
-    ("12",  (50, 180, 80)),
-    ("16",  (140, 220, 60)),
-    ("24",  (250, 230, 50)),
-    ("32",  (250, 180, 30)),
-    ("40",  (250, 130, 30)),
-    ("48",  (240, 70, 50)),
-    ("56",  (220, 40, 70)),
-    ("64",  (200, 50, 180)),
-    ("80",  (170, 30, 180)),
+    ("1", (200, 230, 255)),
+    ("2", (160, 210, 250)),
+    ("4", (90, 170, 240)),
+    ("8", (40, 130, 230)),
+    ("12", (50, 180, 80)),
+    ("16", (140, 220, 60)),
+    ("24", (250, 230, 50)),
+    ("32", (250, 180, 30)),
+    ("40", (250, 130, 30)),
+    ("48", (240, 70, 50)),
+    ("56", (220, 40, 70)),
+    ("64", (200, 50, 180)),
+    ("80", (170, 30, 180)),
     ("80+", (120, 30, 130)),
 ];
 
@@ -1000,7 +1104,13 @@ fn sample_rain_max(img: &image::RgbaImage, fx: f64, fy: f64) -> f64 {
 }
 
 /// 画像中心に "+" 形状の十字を描き込む
-pub(crate) fn draw_cross(img: &mut image::RgbaImage, cx: i32, cy: i32, radius: i32, color: image::Rgba<u8>) {
+pub(crate) fn draw_cross(
+    img: &mut image::RgbaImage,
+    cx: i32,
+    cy: i32,
+    radius: i32,
+    color: image::Rgba<u8>,
+) {
     let (w, h) = (img.width() as i32, img.height() as i32);
     for d in -radius..=radius {
         let px = cx + d;
@@ -1032,7 +1142,8 @@ fn binarize_map_tile(img: &image::RgbaImage) -> MapDotGrid {
                     let py = (j * ih / TILE_H + dy).min(ih - 1);
                     let p = img.get_pixel(px as u32, py as u32);
                     // ITU-R 輝度: 0.299R + 0.587G + 0.114B
-                    let lum = (299 * p.0[0] as u32 + 587 * p.0[1] as u32 + 114 * p.0[2] as u32) / 1000;
+                    let lum =
+                        (299 * p.0[0] as u32 + 587 * p.0[1] as u32 + 114 * p.0[2] as u32) / 1000;
                     if lum < threshold {
                         hit = true;
                         break;
@@ -1088,10 +1199,15 @@ async fn fetch_today_temp(client: &reqwest::Client, area: &AreaEntry) -> Result<
         .and_then(|v| v.as_array())
         .context("timeSeries")?;
     let last = series.last().context("最後の TS")?;
-    let areas = last.get("areas").and_then(|v| v.as_array()).context("areas")?;
+    let areas = last
+        .get("areas")
+        .and_then(|v| v.as_array())
+        .context("areas")?;
     let a = areas.first().context("先頭 area")?;
     let temps = a.get("temps").and_then(|v| v.as_array()).context("temps")?;
-    let v = temps.iter().find_map(|v| v.as_str().and_then(|s| s.parse::<f64>().ok()));
+    let v = temps
+        .iter()
+        .find_map(|v| v.as_str().and_then(|s| s.parse::<f64>().ok()));
     v.context("温度値が無い")
 }
 
@@ -1147,7 +1263,9 @@ pub(crate) fn lonlat_to_tile(lon: f64, lat: f64, zoom: u8) -> (u8, u32, u32) {
 pub(crate) fn tile_to_lonlat(z: u8, x: u32, y: u32) -> (f64, f64) {
     let n = 2f64.powi(z as i32);
     let lon = x as f64 / n * 360.0 - 180.0;
-    let lat_rad = (std::f64::consts::PI * (1.0 - 2.0 * y as f64 / n)).sinh().atan();
+    let lat_rad = (std::f64::consts::PI * (1.0 - 2.0 * y as f64 / n))
+        .sinh()
+        .atan();
     (lat_rad.to_degrees(), lon)
 }
 
@@ -1173,26 +1291,24 @@ fn nowcast_color_to_mmh(r: u8, g: u8, b: u8, a: u8) -> f64 {
     // (R, G, B, mm/h) の代表色テーブル。
     // 観測した JMA タイルから実色を抽出した値ベース（推定含む）。
     const PALETTE: &[(u8, u8, u8, f64)] = &[
-        (242, 242, 255, 0.5),  // ごく弱: ほぼ白っぽい水色
-        (160, 210, 255, 1.0),  // 弱: 薄水色
-        (33,  140, 254, 5.0),  // 普通: 青
-        (0,   65,  255, 10.0), // やや強: 濃青 (or 黄緑系)
-        (250, 245, 0,   20.0), // 強: 黄
-        (255, 153, 0,   30.0), // 激しい: 橙
-        (255, 40,  0,   50.0), // 猛烈: 赤
-        (180, 0,   104, 80.0), // 極端: 紫
-        (130, 0,   70,  100.0),// 80mm+: 濃紫
+        (242, 242, 255, 0.5), // ごく弱: ほぼ白っぽい水色
+        (160, 210, 255, 1.0), // 弱: 薄水色
+        (33, 140, 254, 5.0),  // 普通: 青
+        (0, 65, 255, 10.0),   // やや強: 濃青 (or 黄緑系)
+        (250, 245, 0, 20.0),  // 強: 黄
+        (255, 153, 0, 30.0),  // 激しい: 橙
+        (255, 40, 0, 50.0),   // 猛烈: 赤
+        (180, 0, 104, 80.0),  // 極端: 紫
+        (130, 0, 70, 100.0),  // 80mm+: 濃紫
         // 緑系（JMA配色に含まれる場合に対応）
-        (55,  188, 83,  10.0), // 緑: 10mm相当
-        (140, 220, 60,  10.0), // 黄緑
+        (55, 188, 83, 10.0),  // 緑: 10mm相当
+        (140, 220, 60, 10.0), // 黄緑
     ];
     let mut best_d = f64::INFINITY;
     let mut best_mmh = 0.0_f64;
     let (rf, gf, bf) = (r as f64, g as f64, b as f64);
     for &(pr, pg, pb, mmh) in PALETTE {
-        let d = (rf - pr as f64).powi(2)
-            + (gf - pg as f64).powi(2)
-            + (bf - pb as f64).powi(2);
+        let d = (rf - pr as f64).powi(2) + (gf - pg as f64).powi(2) + (bf - pb as f64).powi(2);
         if d < best_d {
             best_d = d;
             best_mmh = mmh;
@@ -1210,7 +1326,7 @@ fn parse_jma_compact(s: &str) -> Result<DateTime<Local>> {
     // JMA ナウキャストの basetime/validtime は UTC 表記 (例: 20260608070000 = UTC 07:00)
     // なので、UTC として解釈してから Local に変換する。
     // 以前 Local として解釈してしまっていたバグで、JST だと 9 時間ずれて見えていた。
-    let ndt = chrono::NaiveDateTime::parse_from_str(s, "%Y%m%d%H%M%S")
-        .context("validtime parse")?;
+    let ndt =
+        chrono::NaiveDateTime::parse_from_str(s, "%Y%m%d%H%M%S").context("validtime parse")?;
     Ok(chrono::Utc.from_utc_datetime(&ndt).with_timezone(&Local))
 }

@@ -17,8 +17,8 @@ use chrono::{DateTime, Local};
 #[derive(Debug, Clone)]
 pub struct CurrentWeather {
     pub observed_at: DateTime<Local>,
-    pub condition: String,    // "晴れ" "曇り" など人間向け文字列
-    pub icon: WeatherIcon,    // UI でアイコン表示するための列挙
+    pub condition: String, // "晴れ" "曇り" など人間向け文字列
+    pub icon: WeatherIcon, // UI でアイコン表示するための列挙
     pub temperature_c: f64,
     pub humidity_pct: Option<f64>,
     pub wind_speed_ms: Option<f64>,

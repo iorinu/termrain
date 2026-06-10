@@ -45,18 +45,12 @@ pub fn draw(f: &mut Frame, area: Rect, state: &AppState) {
             _ => "  -    ".to_string(),
         };
         lines.push(Line::from(vec![
-            Span::styled(
-                format!(" {} ", time),
-                Style::default().fg(theme::SUBTLE),
-            ),
+            Span::styled(format!(" {} ", time), Style::default().fg(theme::SUBTLE)),
             Span::styled(
                 format!("{}  ", p.icon.symbol()),
                 Style::default().add_modifier(Modifier::BOLD),
             ),
-            Span::styled(
-                format!("{:>6}", temp),
-                Style::default().fg(theme::TEMP),
-            ),
+            Span::styled(format!("{:>6}", temp), Style::default().fg(theme::TEMP)),
             Span::raw("  "),
             Span::styled(rain, Style::default().fg(theme::RAIN)),
         ]));

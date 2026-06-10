@@ -61,9 +61,7 @@ pub struct AppState {
 }
 
 /// Braille スピナー文字。120ms ごとに次へ進める。
-pub const SPINNER_FRAMES: &[&str] = &[
-    "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏",
-];
+pub const SPINNER_FRAMES: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
 impl AppState {
     pub fn spinner(&self) -> &'static str {
@@ -104,7 +102,8 @@ pub async fn run(args: Args) -> Result<()> {
         let client = reqwest::Client::builder()
             .user_agent("termrain/0.1")
             .build()?;
-        let hits = crate::api::geocoding::search_many(&client, query, config.ui.language, 10).await?;
+        let hits =
+            crate::api::geocoding::search_many(&client, query, config.ui.language, 10).await?;
         if hits.is_empty() {
             eprintln!("No matches for: {query}");
         } else {
@@ -256,7 +255,12 @@ pub async fn run(args: Args) -> Result<()> {
     let (tx, mut rx) = mpsc::unbounded_channel::<Msg>();
 
     // 初回フェッチを spawn（天気 + 地図データ）
-    spawn_fetch(provider.clone(), state.config.clone(), state.radar_time_offset, tx.clone());
+    spawn_fetch(
+        provider.clone(),
+        state.config.clone(),
+        state.radar_time_offset,
+        tx.clone(),
+    );
     spawn_map_load(tx.clone());
 
     // Splash を 2 秒で自動解除
@@ -377,8 +381,12 @@ fn spawn_map_load(tx: mpsc::UnboundedSender<Msg>) {
             }
         };
         match MapData::load(&client).await {
-            Ok(m) => { let _ = tx.send(Msg::Map(Arc::new(m))); }
-            Err(e) => { let _ = tx.send(Msg::Error(format!("map: {e:#}"))); }
+            Ok(m) => {
+                let _ = tx.send(Msg::Map(Arc::new(m)));
+            }
+            Err(e) => {
+                let _ = tx.send(Msg::Error(format!("map: {e:#}")));
+            }
         }
     });
 }
@@ -415,18 +423,33 @@ fn handle_event(
         KeyCode::Char('r') => {
             state.last_error = None;
             state.radar_loading = true;
-            spawn_fetch(provider.clone(), state.config.clone(), state.radar_time_offset, tx.clone());
+            spawn_fetch(
+                provider.clone(),
+                state.config.clone(),
+                state.radar_time_offset,
+                tx.clone(),
+            );
         }
         KeyCode::Char('+') | KeyCode::Char('=') => {
             // 13 まで上げる。z=11-13 は JMA タイル z=10 を内部でクロップして拡大表示。
             state.config.radar.zoom = (state.config.radar.zoom + 1).min(13);
             state.radar_loading = true;
-            spawn_radar(provider.clone(), state.config.clone(), state.radar_time_offset, tx.clone());
+            spawn_radar(
+                provider.clone(),
+                state.config.clone(),
+                state.radar_time_offset,
+                tx.clone(),
+            );
         }
         KeyCode::Char('-') | KeyCode::Char('_') => {
             state.config.radar.zoom = state.config.radar.zoom.saturating_sub(1).max(6);
             state.radar_loading = true;
-            spawn_radar(provider.clone(), state.config.clone(), state.radar_time_offset, tx.clone());
+            spawn_radar(
+                provider.clone(),
+                state.config.clone(),
+                state.radar_time_offset,
+                tx.clone(),
+            );
         }
         // 移動量は 0.02 度（約 2km）。タイルキャッシュが効くので連打しても軽い。
         KeyCode::Char('h') => shift_location(state, -0.02, 0.0, provider.clone(), tx.clone()),
@@ -437,12 +460,22 @@ fn handle_event(
         KeyCode::Char(',') | KeyCode::Char('<') => {
             state.radar_time_offset = (state.radar_time_offset - 1).max(-20);
             state.radar_loading = true;
-            spawn_radar(provider.clone(), state.config.clone(), state.radar_time_offset, tx.clone());
+            spawn_radar(
+                provider.clone(),
+                state.config.clone(),
+                state.radar_time_offset,
+                tx.clone(),
+            );
         }
         KeyCode::Char('.') | KeyCode::Char('>') => {
             state.radar_time_offset = (state.radar_time_offset + 1).min(20);
             state.radar_loading = true;
-            spawn_radar(provider.clone(), state.config.clone(), state.radar_time_offset, tx.clone());
+            spawn_radar(
+                provider.clone(),
+                state.config.clone(),
+                state.radar_time_offset,
+                tx.clone(),
+            );
         }
         // アニメーション再生 toggle。tokio interval で進行は外側で。
         KeyCode::Char('p') => {
@@ -453,7 +486,12 @@ fn handle_event(
             state.config.radar.map_style = state.config.radar.map_style.next();
             provider.set_map_style(state.config.radar.map_style);
             state.radar_loading = true;
-            spawn_radar(provider.clone(), state.config.clone(), state.radar_time_offset, tx.clone());
+            spawn_radar(
+                provider.clone(),
+                state.config.clone(),
+                state.radar_time_offset,
+                tx.clone(),
+            );
         }
         _ => return false,
     }
@@ -489,8 +527,12 @@ fn spawn_fetch(
         let tx = tx.clone();
         tokio::spawn(async move {
             match p.current(lat, lon).await {
-                Ok(c) => { let _ = tx.send(Msg::Current(c)); }
-                Err(e) => { let _ = tx.send(Msg::Error(format!("current: {e:#}"))); }
+                Ok(c) => {
+                    let _ = tx.send(Msg::Current(c));
+                }
+                Err(e) => {
+                    let _ = tx.send(Msg::Error(format!("current: {e:#}")));
+                }
             }
         });
     }
@@ -499,8 +541,12 @@ fn spawn_fetch(
         let tx = tx.clone();
         tokio::spawn(async move {
             match p.hourly(lat, lon).await {
-                Ok(v) => { let _ = tx.send(Msg::Hourly(v)); }
-                Err(e) => { let _ = tx.send(Msg::Error(format!("hourly: {e:#}"))); }
+                Ok(v) => {
+                    let _ = tx.send(Msg::Hourly(v));
+                }
+                Err(e) => {
+                    let _ = tx.send(Msg::Error(format!("hourly: {e:#}")));
+                }
             }
         });
     }
@@ -509,8 +555,12 @@ fn spawn_fetch(
         let tx = tx.clone();
         tokio::spawn(async move {
             match p.daily(lat, lon).await {
-                Ok(v) => { let _ = tx.send(Msg::Daily(v)); }
-                Err(e) => { let _ = tx.send(Msg::Error(format!("daily: {e:#}"))); }
+                Ok(v) => {
+                    let _ = tx.send(Msg::Daily(v));
+                }
+                Err(e) => {
+                    let _ = tx.send(Msg::Error(format!("daily: {e:#}")));
+                }
             }
         });
     }
@@ -519,8 +569,12 @@ fn spawn_fetch(
         let tx = tx.clone();
         tokio::spawn(async move {
             match p.radar(lat, lon, zoom, time_offset).await {
-                Ok(r) => { let _ = tx.send(Msg::Radar(r)); }
-                Err(e) => { let _ = tx.send(Msg::Error(format!("radar: {e:#}"))); }
+                Ok(r) => {
+                    let _ = tx.send(Msg::Radar(r));
+                }
+                Err(e) => {
+                    let _ = tx.send(Msg::Error(format!("radar: {e:#}")));
+                }
             }
         });
     }
@@ -537,8 +591,12 @@ fn spawn_radar(
     let zoom = cfg.radar.zoom;
     tokio::spawn(async move {
         match provider.radar(lat, lon, zoom, time_offset).await {
-            Ok(r) => { let _ = tx.send(Msg::Radar(r)); }
-            Err(e) => { let _ = tx.send(Msg::Error(format!("radar: {e:#}"))); }
+            Ok(r) => {
+                let _ = tx.send(Msg::Radar(r));
+            }
+            Err(e) => {
+                let _ = tx.send(Msg::Error(format!("radar: {e:#}")));
+            }
         }
     });
 }

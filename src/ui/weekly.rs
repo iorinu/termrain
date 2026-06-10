@@ -69,10 +69,7 @@ pub fn draw(f: &mut Frame, area: Rect, state: &AppState) {
 
         lines.push(Line::from(vec![
             Span::raw("    "),
-            Span::styled(
-                format!("{}/{}", hi, lo),
-                Style::default().fg(theme::TEMP),
-            ),
+            Span::styled(format!("{}/{}", hi, lo), Style::default().fg(theme::TEMP)),
             Span::raw("  "),
             Span::styled(pop, Style::default().fg(theme::RAIN)),
         ]));

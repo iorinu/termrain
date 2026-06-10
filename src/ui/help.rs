@@ -44,7 +44,10 @@ pub fn draw(f: &mut Frame, area: Rect, state: &AppState) {
     lines.push(Line::from(""));
     lines.push(section(s.help_sources_section));
     lines.push(kv(s.help_source_rain_jp, s.help_source_rain_jp_value));
-    lines.push(kv(s.help_source_rain_global, s.help_source_rain_global_value));
+    lines.push(kv(
+        s.help_source_rain_global,
+        s.help_source_rain_global_value,
+    ));
     lines.push(kv(s.help_source_map, s.help_source_map_value));
     lines.push(Line::from(""));
     lines.push(Line::from(Span::styled(

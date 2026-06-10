@@ -66,7 +66,18 @@ pub async fn search_many(
         count.max(1).min(20),
         lang.api_code(),
     );
-    let r: Resp = client.get(&url).send().await?.error_for_status()?.json().await?;
-    let hits: Vec<GeoHit> = r.results.unwrap_or_default().into_iter().map(to_hit).collect();
+    let r: Resp = client
+        .get(&url)
+        .send()
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+    let hits: Vec<GeoHit> = r
+        .results
+        .unwrap_or_default()
+        .into_iter()
+        .map(to_hit)
+        .collect();
     Ok(hits)
 }

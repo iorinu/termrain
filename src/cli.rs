@@ -8,7 +8,11 @@
 use clap::Parser;
 
 #[derive(Debug, Parser)]
-#[command(name = "termrain", version, about = "ターミナルで天気予報と雨雲レーダー")]
+#[command(
+    name = "termrain",
+    version,
+    about = "ターミナルで天気予報と雨雲レーダー"
+)]
 pub struct Args {
     /// 都市名で地点指定（例: "Tokyo", "Paris"）。指定時は Geocoding で解決する。
     #[arg(long)]

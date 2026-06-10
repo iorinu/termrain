@@ -49,7 +49,10 @@ pub fn draw(f: &mut Frame, area: Rect, state: &AppState) {
         ]));
         lines.push(Line::from(""));
         lines.push(Line::from(vec![
-            Span::styled(format!("  {}  ", s.temp), Style::default().fg(theme::SUBTLE)),
+            Span::styled(
+                format!("  {}  ", s.temp),
+                Style::default().fg(theme::SUBTLE),
+            ),
             Span::styled(
                 format!("{:>5.1} ℃", cw.temperature_c),
                 Style::default()
@@ -59,20 +62,20 @@ pub fn draw(f: &mut Frame, area: Rect, state: &AppState) {
         ]));
         if let Some(h) = cw.humidity_pct {
             lines.push(Line::from(vec![
-                Span::styled(format!("  {}  ", s.humidity), Style::default().fg(theme::SUBTLE)),
                 Span::styled(
-                    format!("{:>5.0} %", h),
-                    Style::default().fg(theme::RAIN),
+                    format!("  {}  ", s.humidity),
+                    Style::default().fg(theme::SUBTLE),
                 ),
+                Span::styled(format!("{:>5.0} %", h), Style::default().fg(theme::RAIN)),
             ]));
         }
         if let Some(w) = cw.wind_speed_ms {
             lines.push(Line::from(vec![
-                Span::styled(format!("  {}  ", s.wind), Style::default().fg(theme::SUBTLE)),
                 Span::styled(
-                    format!("{:>5.1} m/s", w),
-                    Style::default().fg(theme::FG),
+                    format!("  {}  ", s.wind),
+                    Style::default().fg(theme::SUBTLE),
                 ),
+                Span::styled(format!("{:>5.1} m/s", w), Style::default().fg(theme::FG)),
             ]));
         }
         lines.push(Line::from(""));

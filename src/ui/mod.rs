@@ -114,19 +114,16 @@ fn draw_header(f: &mut Frame, area: Rect, state: &AppState) {
             Style::default().fg(theme::FG),
         ),
         Span::styled(
-            format!(" ({:.3}, {:.3})", state.config.location.latitude, state.config.location.longitude),
+            format!(
+                " ({:.3}, {:.3})",
+                state.config.location.latitude, state.config.location.longitude
+            ),
             Style::default().fg(theme::SUBTLE),
         ),
         Span::styled("  │  ", Style::default().fg(theme::BORDER)),
-        Span::styled(
-            &state.provider_name,
-            Style::default().fg(theme::ACCENT_2),
-        ),
+        Span::styled(&state.provider_name, Style::default().fg(theme::ACCENT_2)),
         Span::styled("  │  ", Style::default().fg(theme::BORDER)),
-        Span::styled(
-            format!("🕐 {}", now),
-            Style::default().fg(theme::SUBTLE),
-        ),
+        Span::styled(format!("🕐 {}", now), Style::default().fg(theme::SUBTLE)),
     ]);
     f.render_widget(
         Paragraph::new(line).style(Style::default().bg(theme::BG)),
