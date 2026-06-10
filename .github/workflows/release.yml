@@ -61,11 +61,14 @@ jobs:
         if: matrix.archive == 'tar.gz'
         shell: bash
         run: |
+          # Homebrew Formula が `bin.install "termrain"` 一発で済むよう、
+          # アーカイブのトップに binary とドキュメントを直接置く
+          # (サブディレクトリで包まない)
           name="${BIN_NAME}-${{ steps.ver.outputs.version }}-${{ matrix.target }}"
-          mkdir -p "dist/${name}"
-          cp "target/${{ matrix.target }}/release/${BIN_NAME}" "dist/${name}/"
-          cp README.md LICENSE "dist/${name}/"
-          tar -czf "${name}.tar.gz" -C dist "${name}"
+          mkdir staging
+          cp "target/${{ matrix.target }}/release/${BIN_NAME}" staging/
+          cp README.md README.ja.md LICENSE staging/ 2>/dev/null || true
+          tar -czf "${name}.tar.gz" -C staging .
           shasum -a 256 "${name}.tar.gz" > "${name}.tar.gz.sha256"
 
       - name: Package (Windows)
@@ -73,10 +76,12 @@ jobs:
         shell: pwsh
         run: |
           $name = "${env:BIN_NAME}-${{ steps.ver.outputs.version }}-${{ matrix.target }}"
-          New-Item -ItemType Directory -Path "dist/$name" | Out-Null
-          Copy-Item "target/${{ matrix.target }}/release/${env:BIN_NAME}.exe" "dist/$name/"
-          Copy-Item README.md, LICENSE "dist/$name/"
-          Compress-Archive -Path "dist/$name" -DestinationPath "$name.zip"
+          New-Item -ItemType Directory -Path "staging" | Out-Null
+          Copy-Item "target/${{ matrix.target }}/release/${env:BIN_NAME}.exe" "staging/"
+          if (Test-Path README.md)    { Copy-Item README.md staging/ }
+          if (Test-Path README.ja.md) { Copy-Item README.ja.md staging/ }
+          if (Test-Path LICENSE)      { Copy-Item LICENSE staging/ }
+          Compress-Archive -Path "staging/*" -DestinationPath "$name.zip"
           (Get-FileHash "$name.zip" -Algorithm SHA256).Hash + "  $name.zip" | Out-File "$name.zip.sha256" -Encoding ascii
 
       - name: Upload artifact
