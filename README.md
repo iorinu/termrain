@@ -1,140 +1,142 @@
 # termrain
 
-ターミナルで天気予報と雨雲レーダーを表示する Rust 製の TUI アプリ。
+**English** | [日本語](./README.ja.md)
 
-Kitty graphics protocol を活用してカラー地図に雨雲を重ね、Yahoo 天気の雨雲レーダー風の表示をターミナル内で実現します。世界中の主要都市に対応し、日本国内は気象庁ナウキャストの 1km / 5分粒度データを利用します。
+Terminal weather forecast and rain radar TUI, written in Rust.
+
+termrain uses the Kitty graphics protocol to overlay rain clouds on a color map, bringing a Yahoo-style rain radar inside your terminal. It works for cities around the world and uses the JMA Nowcast (1 km / 5-minute resolution) for locations in Japan.
 
 ![termrain main screen](docs/screenshots/main.png)
 
-<!-- 追加スクショは下記の形式で。ファイルを docs/screenshots/ に置けば表示されます。
+<!-- Add more screenshots by dropping files into docs/screenshots/ and uncommenting:
 ![Help modal](docs/screenshots/help.png)
 ![Future radar scrub](docs/screenshots/radar-future.png)
 -->
 
 
-## 主な機能
+## Features
 
-- **現在の天気**: 気温・湿度・風速・天気アイコン
-- **時間別予報グラフ**: 気温折れ線 + 降水量バー (1時間刻みで 48 時間先まで)
-- **時間別予報リスト**: Yahoo 天気風の縦並び (時刻 / アイコン / 気温 / 降水確率 or 降水量)
-- **週間予報**: 7 日分のアイコン・最高/最低気温・降水確率
-- **雨雲レーダー** (画像表示、地図 + 雨雲 alpha blend)
-  - 14 段階のカラーグラデーション + 凡例カラーバー焼き込み
-  - 時系列スクラブ (過去 30 分 〜 未来 60 分)
-  - `p` キーで自動アニメーション再生
-  - 地図スタイル切替 (CARTO Voyager / 国土地理院 標準 / 航空写真)
-- **多言語対応**: 英語 / 日本語 (デフォルト英語、設定 or `--lang` で切替)
-- **自動プロバイダー切替**: 日本国内は気象庁 (JMA)、それ以外は Open-Meteo
-- **タイルキャッシュ**: 地図・雨雲タイルをメモリに保持し、移動・ズームを高速化
-- **ヘルプモーダル**: `?` キーで操作一覧と凡例を表示
+- **Current weather**: temperature, humidity, wind, weather icon
+- **Hourly chart**: temperature line + precipitation bar, hourly for up to 48 hours
+- **Hourly list (Yahoo style)**: vertical list with time / icon / temperature / precipitation amount or probability
+- **Weekly forecast**: 7 days with icon, high / low temperature, precipitation probability
+- **Rain radar** (raster image: map + rain alpha blend)
+  - 14-step color gradient with a legend bar baked into the image
+  - Time scrub from -30 minutes (past) to +60 minutes (forecast)
+  - Auto play loop with the `p` key
+  - Map style switch (CARTO Voyager / GSI Standard / GSI Aerial)
+- **Localized UI**: English / Japanese (English is the default, switch via config or `--lang`)
+- **Automatic provider selection**: JMA in Japan, Open-Meteo everywhere else
+- **Tile cache**: map and radar tiles are cached in memory for smooth panning and zooming
+- **Help modal**: press `?` to see key bindings and the rain legend
 
 
-## 必要要件
+## Requirements
 
 - Rust 1.95.0+ (edition 2024)
-- Kitty graphics protocol に対応したターミナル (動作確認: **wezterm**)
+- A terminal with Kitty graphics protocol support (verified on **wezterm**)
 
 
-## インストール
+## Installation
 
 ### A. Homebrew (macOS / Linux)
 
-> ⚠️ **準備中**: 初回リリース (v0.1.0) のタグを切ったタイミングで利用可能になります。
+> ⚠️ **Coming soon**: available once the first release (v0.1.0) tag is cut.
 
 ```sh
 brew tap iorinu/tap
 brew install termrain
 ```
 
-### B. プレビルドバイナリをダウンロード
+### B. Prebuilt binaries
 
-> ⚠️ **準備中**: GitHub Actions のリリースワークフローを用意済み。タグ push 後に
-> [Releases](https://github.com/iorinu/termrain/releases) ページから各プラットフォーム用アーカイブを取得できます:
+> ⚠️ **Coming soon**: the release workflow on GitHub Actions is ready. Once a tag is pushed, archives for each platform will be available from the
+> [Releases](https://github.com/iorinu/termrain/releases) page:
 >
 > - `termrain-vX.Y.Z-aarch64-apple-darwin.tar.gz` (Apple Silicon Mac)
 > - `termrain-vX.Y.Z-x86_64-apple-darwin.tar.gz` (Intel Mac)
 > - `termrain-vX.Y.Z-x86_64-unknown-linux-gnu.tar.gz` (Linux x86_64)
-> - `termrain-vX.Y.Z-x86_64-pc-windows-msvc.zip` (Windows、TUI 描画は未検証)
+> - `termrain-vX.Y.Z-x86_64-pc-windows-msvc.zip` (Windows; TUI rendering is unverified)
 
 ```sh
-# 例: Apple Silicon Mac
+# Example: Apple Silicon Mac
 curl -L https://github.com/iorinu/termrain/releases/latest/download/termrain-vX.Y.Z-aarch64-apple-darwin.tar.gz | tar xz
 sudo install -m 755 termrain-*/termrain /usr/local/bin/
 ```
 
-### C. ソースからビルド (`cargo install`)
+### C. Build from source (`cargo install`)
 
 ```sh
 cargo install --git https://github.com/iorinu/termrain
 ```
 
-`~/.cargo/bin/termrain` にバイナリが入ります (`PATH` 通っていれば `termrain` で起動可)。
+The binary is placed at `~/.cargo/bin/termrain` (run as `termrain` if that directory is on your `PATH`).
 
-### D. リポジトリをクローンしてビルド
+### D. Clone the repository and build
 
 ```sh
 git clone https://github.com/iorinu/termrain
 cd termrain
 cargo build --release
-# 直接実行
+# Run directly
 ./target/release/termrain --city Tokyo
-# システムに入れる (任意)
+# Install system-wide (optional)
 install -m 755 target/release/termrain /usr/local/bin/
 ```
 
 
-## クイックスタート
+## Quick start
 
 ```sh
-# まずは引数なしで起動 (初回は ~/.config/termrain/config.toml を自動作成、東京表示)
+# Just run it: the first launch creates ~/.config/termrain/config.toml and shows Tokyo
 termrain
 
-# 都市名で起動
+# Run with a city name
 termrain --city Tokyo
 termrain --city Osaka
 termrain --city Paris
 
-# 緯度経度直接指定
-termrain --lat 34.8265 --lon 135.4717   # 箕面市
+# Run with explicit coordinates
+termrain --lat 34.8265 --lon 135.4717   # Minoh, Japan
 
-# 日本語UI + 大阪をデフォルトに保存
+# Switch to Japanese UI with Osaka as the default
 termrain --city Osaka --lang ja --save
 
-# 以降は素のコマンドで前回の設定で起動
+# After that, just run termrain to launch with the saved defaults
 termrain
 ```
 
 
-## キー操作
+## Key bindings
 
-| キー | 動作 |
+| Key | Action |
 |---|---|
-| `q` / `Esc` | 終了 |
-| `?` | ヘルプモーダルを開く / 閉じる |
-| `r` | 現在時刻に戻して再取得 |
-| `+` / `-` | ズーム (6 〜 13、デフォルト 11 ≒ 16km 四方) |
-| `h` `j` `k` `l` | 地点移動 (約 2km / キー) |
-| `,` / `.` | 雨雲を時系列で 前 / 後 にスクラブ |
-| `p` | 雨雲アニメーション 再生 / 停止 |
-| `m` | 地図スタイル切替 (CARTO Voyager → 国土地理院 標準 → 航空写真) |
+| `q` / `Esc` | Quit |
+| `?` | Toggle help modal |
+| `r` | Reload at current time |
+| `+` / `-` | Zoom (6 to 13, default 11 ≒ 16 km wide) |
+| `h` `j` `k` `l` | Pan the radar location (~2 km per keypress) |
+| `,` / `.` | Scrub radar time backward / forward |
+| `p` | Toggle radar animation playback |
+| `m` | Cycle map style (CARTO Voyager → GSI Standard → GSI Aerial) |
 
 
-## CLI 引数一覧
+## CLI options
 
-| 引数 | 説明 |
+| Option | Description |
 |---|---|
-| `--city <NAME>` | 都市名で地点指定 (Open-Meteo Geocoding で解決) |
-| `--lat <LAT>` | 緯度 (`--lon` と組で指定) |
-| `--lon <LON>` | 経度 (`--lat` と組で指定) |
-| `--lang <en\|ja>` | 表示言語を上書き (`en` / `english` / `ja` / `japanese`) |
-| `--save` | 起動時の設定 (都市 / 言語 / 緯度経度) を `~/.config/termrain/config.toml` に保存 |
-| `--list-city <QUERY>` | 同名都市の候補を最大 10 件表示して終了 (起動はしない) |
-| `--force-jma` | 緯度経度が日本国外でも JMA を使う (実験用) |
-| `--dump` | TUI を起動せず、現在の天気を標準出力に JSON 風で出して終了 (デバッグ用) |
-| `-h` / `--help` | ヘルプ表示 |
-| `-V` / `--version` | バージョン表示 |
+| `--city <NAME>` | Look up a city by name (resolved by Open-Meteo Geocoding) |
+| `--lat <LAT>` | Latitude (combine with `--lon`) |
+| `--lon <LON>` | Longitude (combine with `--lat`) |
+| `--lang <en\|ja>` | Override UI language (`en` / `english` / `ja` / `japanese`) |
+| `--save` | Persist the launch settings (city / language / coordinates) to `~/.config/termrain/config.toml` |
+| `--list-city <QUERY>` | Print up to 10 disambiguation candidates and exit (no TUI) |
+| `--force-jma` | Force JMA even when the coordinates fall outside Japan (experimental) |
+| `--dump` | Skip the TUI and dump the current weather to stdout (debug) |
+| `-h` / `--help` | Print help |
+| `-V` / `--version` | Print version |
 
-同名都市のあいまい解消例:
+Disambiguating a name that resolves to multiple cities:
 
 ```sh
 $ termrain --list-city Ueno
@@ -143,58 +145,58 @@ Candidates for "Ueno":
    2. Ueno    Niigata, Japan    lat= 37.1820  lon=138.7457
    3. Ueno    Kyoto, Japan      lat= 35.1167  lon=135.8333
    ...
-# 欲しい候補の緯度経度をコピペして起動
+# Copy the lat/lon you want and launch with it
 $ termrain --lat 37.1820 --lon 138.7457 --save
 ```
 
 
-## 設定ファイル
+## Configuration file
 
-初回起動時に `~/.config/termrain/config.toml` が自動生成されます (`XDG_CONFIG_HOME` が設定されていればそちらを優先)。
+The first launch creates `~/.config/termrain/config.toml` (or `$XDG_CONFIG_HOME/termrain/config.toml` if `XDG_CONFIG_HOME` is set).
 
 ```toml
 [location]
 name = "Tokyo"
 latitude = 35.6812
 longitude = 139.7671
-country = "JP"           # "JP" なら気象庁 (JMA)、それ以外は Open-Meteo
+country = "JP"           # "JP" picks JMA; anything else picks Open-Meteo
 
 [ui]
-unit = "metric"          # metric / imperial (現状は metric のみ)
-refresh_interval = 600   # 自動再取得の間隔 (秒)、0 で無効
+unit = "metric"          # metric / imperial (only metric for now)
+refresh_interval = 600   # auto refetch interval in seconds; 0 disables it
 language = "english"     # english / japanese
 
 [radar]
-zoom = 11                # 6 (広域 ≒ 130km) 〜 13 (狭域 ≒ 4km)
+zoom = 11                # 6 (wide ≒ 130 km) to 13 (narrow ≒ 4 km)
 map_style = "carto_voyager"  # carto_voyager / gsi_std / gsi_photo
 ```
 
-CLI 引数 `--save` で現在の起動引数をこのファイルに書き込めます。
+`--save` rewrites this file with the current launch arguments.
 
 
-## キャッシュ
+## Caches
 
-- ログ: `~/.cache/termrain/termrain.log.*`
-- 地図・行政界データ: `~/.cache/termrain/*.geojson` および `*.json`
-- 雨雲タイルはメモリキャッシュ (プロセス終了で破棄)
+- Logs: `~/.cache/termrain/termrain.log.*`
+- Map and admin boundary data: `~/.cache/termrain/*.geojson` and `*.json`
+- Radar tiles are kept in memory only (cleared when the process exits)
 
-ディスクキャッシュを消すなら:
+To wipe the on-disk caches:
 
 ```sh
 rm -rf ~/.cache/termrain
 ```
 
 
-## データ出典
+## Data sources
 
-- **気象庁ナウキャスト** (雨雲レーダー、日本): <https://www.jma.go.jp/>
-- **国土地理院** (地図タイル、日本): <https://maps.gsi.go.jp/>
-- **CARTO Basemaps** (地図タイル、世界): © OpenStreetMap contributors, © CARTO
-- **Open-Meteo** (海外の天気・雨雲、Geocoding): <https://open-meteo.com/>
-- **Natural Earth** (海岸線・国境): public domain
-- **GADM 4.1** (日本市町村界): <https://gadm.org/>
+- **JMA Nowcast** (rain radar, Japan): <https://www.jma.go.jp/>
+- **GSI (Geospatial Information Authority of Japan)** (map tiles, Japan): <https://maps.gsi.go.jp/>
+- **CARTO Basemaps** (map tiles, worldwide): © OpenStreetMap contributors, © CARTO
+- **Open-Meteo** (weather & rain outside Japan, geocoding): <https://open-meteo.com/>
+- **Natural Earth** (coastline, country borders): public domain
+- **GADM 4.1** (Japanese municipal boundaries): <https://gadm.org/>
 
 
-## ライセンス
+## License
 
 [MIT License](./LICENSE) © 2026 iorinu
