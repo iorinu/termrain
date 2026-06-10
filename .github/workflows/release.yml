@@ -21,10 +21,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-14            # Apple Silicon ランナー
+          - os: macos-14            # Apple Silicon ランナー (ネイティブ)
             target: aarch64-apple-darwin
             archive: tar.gz
-          - os: macos-13            # Intel Mac ランナー
+          - os: macos-14            # macos-13 のキューが混むので、Apple Silicon で cross-compile
             target: x86_64-apple-darwin
             archive: tar.gz
           - os: ubuntu-latest
