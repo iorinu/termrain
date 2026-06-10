@@ -41,8 +41,6 @@ Kitty graphics protocol を活用してカラー地図に雨雲を重ね、Yahoo
 
 ### A. Homebrew (macOS / Linux)
 
-> ⚠️ **準備中**: 初回リリース (v0.1.0) のタグを切ったタイミングで利用可能になります。
-
 ```sh
 brew tap iorinu/tap
 brew install termrain
@@ -50,18 +48,17 @@ brew install termrain
 
 ### B. プレビルドバイナリをダウンロード
 
-> ⚠️ **準備中**: GitHub Actions のリリースワークフローを用意済み。タグ push 後に
-> [Releases](https://github.com/iorinu/termrain/releases) ページから各プラットフォーム用アーカイブを取得できます:
->
-> - `termrain-vX.Y.Z-aarch64-apple-darwin.tar.gz` (Apple Silicon Mac)
-> - `termrain-vX.Y.Z-x86_64-apple-darwin.tar.gz` (Intel Mac)
-> - `termrain-vX.Y.Z-x86_64-unknown-linux-gnu.tar.gz` (Linux x86_64)
-> - `termrain-vX.Y.Z-x86_64-pc-windows-msvc.zip` (Windows、TUI 描画は未検証)
+[Releases](https://github.com/iorinu/termrain/releases) ページからプラットフォームごとのアーカイブを取得できます:
+
+- `termrain-vX.Y.Z-aarch64-apple-darwin.tar.gz` (Apple Silicon Mac)
+- `termrain-vX.Y.Z-x86_64-apple-darwin.tar.gz` (Intel Mac)
+- `termrain-vX.Y.Z-x86_64-unknown-linux-gnu.tar.gz` (Linux x86_64)
+- `termrain-vX.Y.Z-x86_64-pc-windows-msvc.zip` (Windows、TUI 描画は未検証)
 
 ```sh
-# 例: Apple Silicon Mac
-curl -L https://github.com/iorinu/termrain/releases/latest/download/termrain-vX.Y.Z-aarch64-apple-darwin.tar.gz | tar xz
-sudo install -m 755 termrain-*/termrain /usr/local/bin/
+# 例: Apple Silicon Mac、最新リリース
+curl -L https://github.com/iorinu/termrain/releases/latest/download/termrain-v0.1.0-aarch64-apple-darwin.tar.gz | tar xz
+sudo install -m 755 termrain /usr/local/bin/
 ```
 
 ### C. ソースからビルド (`cargo install`)
