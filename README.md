@@ -82,12 +82,6 @@ cargo build --release
 install -m 755 target/release/termrain /usr/local/bin/
 ```
 
-### E. 開発中の試し起動
-
-```sh
-cargo run --release -- --city Tokyo
-```
-
 
 ## クイックスタート
 
