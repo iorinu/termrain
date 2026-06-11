@@ -130,8 +130,30 @@ termrain
 | `--list-city <QUERY>` | 同名都市の候補を最大 10 件表示して終了 (起動はしない) |
 | `--force-jma` | 緯度経度が日本国外でも JMA を使う (実験用) |
 | `--dump` | TUI を起動せず、現在の天気を標準出力に JSON 風で出して終了 (デバッグ用) |
+| `--completion <SHELL>` | 指定したシェル用の補完スクリプトを標準出力に出して終了 |
 | `-h` / `--help` | ヘルプ表示 |
 | `-V` / `--version` | バージョン表示 |
+
+### シェル補完
+
+`bash` / `zsh` / `fish` / `powershell` / `elvish` 用の補完スクリプトを生成できます:
+
+```sh
+# zsh (初回のみ)
+mkdir -p ~/.zsh/completions
+termrain --completion zsh > ~/.zsh/completions/_termrain
+# ~/.zshrc に以下を追加 (まだ無ければ):
+#   fpath=(~/.zsh/completions $fpath)
+#   autoload -U compinit && compinit
+
+# bash
+termrain --completion bash > ~/.local/share/bash-completion/completions/termrain
+
+# fish
+termrain --completion fish > ~/.config/fish/completions/termrain.fish
+```
+
+Homebrew でインストールしている場合は補完が自動で有効になります (v0.3.1 以降)。
 
 同名都市のあいまい解消例:
 

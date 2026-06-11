@@ -16,7 +16,7 @@ mod render;
 mod ui;
 
 use anyhow::Result;
-use clap::Parser;
+use clap::{CommandFactory, Parser};
 
 // tokio::main で非同期ランタイムを起動する。
 // flavor = "multi_thread" にしているのは、HTTP 取得 (reqwest) と
@@ -25,6 +25,15 @@ use clap::Parser;
 async fn main() -> Result<()> {
     // 1) CLI 引数（地点指定など）をまずパース
     let args = cli::Args::parse();
+
+    // --completion <shell> が指定されていればスクリプトを stdout に出して終了。
+    // ログ初期化や TUI 起動は不要なので、ここで早期 return する。
+    if let Some(shell) = args.completion {
+        let mut cmd = cli::Args::command();
+        let bin_name = cmd.get_name().to_string();
+        clap_complete::generate(shell, &mut cmd, bin_name, &mut std::io::stdout());
+        return Ok(());
+    }
 
     // 2) ログを「ファイル」に出す。
     //    TUI は端末を全画面で乗っ取るので、println! や標準の tracing 出力

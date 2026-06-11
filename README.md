@@ -131,8 +131,30 @@ termrain
 | `--list-city <QUERY>` | Print up to 10 disambiguation candidates and exit (no TUI) |
 | `--force-jma` | Force JMA even when the coordinates fall outside Japan (experimental) |
 | `--dump` | Skip the TUI and dump the current weather to stdout (debug) |
+| `--completion <SHELL>` | Print a shell completion script to stdout and exit |
 | `-h` / `--help` | Print help |
 | `-V` / `--version` | Print version |
+
+### Shell completion
+
+Generate completion scripts for `bash`, `zsh`, `fish`, `powershell`, or `elvish`:
+
+```sh
+# zsh (one-time setup)
+mkdir -p ~/.zsh/completions
+termrain --completion zsh > ~/.zsh/completions/_termrain
+# then add these lines to ~/.zshrc if not present:
+#   fpath=(~/.zsh/completions $fpath)
+#   autoload -U compinit && compinit
+
+# bash
+termrain --completion bash > ~/.local/share/bash-completion/completions/termrain
+
+# fish
+termrain --completion fish > ~/.config/fish/completions/termrain.fish
+```
+
+If you installed via Homebrew, completions are wired up automatically (v0.3.1+).
 
 Disambiguating a name that resolves to multiple cities:
 

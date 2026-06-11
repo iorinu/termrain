@@ -53,6 +53,11 @@ class Termrain < Formula
   def install
     bin.install "termrain"
 
+    # bash / zsh / fish の補完スクリプトを自動生成して所定の場所に置く。
+    # `termrain --completion <shell>` が stdout に補完を出すので、
+    # Homebrew のヘルパーがそれを拾って install してくれる。
+    generate_completions_from_executable(bin/"termrain", "--completion")
+
     doc_files = Dir["README.*", "readme.*", "LICENSE", "LICENSE.*", "CHANGELOG.*"]
     leftover = Dir["*"] - doc_files - ["termrain"]
     pkgshare.install(*leftover) unless leftover.empty?
