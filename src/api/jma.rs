@@ -623,7 +623,17 @@ impl WeatherProvider for Jma {
         Self::set_language(self, lang);
     }
 
-    async fn radar(&self, lat: f64, lon: f64, zoom: u8, time_offset: i32) -> Result<RadarGrid> {
+    async fn radar(
+        &self,
+        lat: f64,
+        lon: f64,
+        zoom: u8,
+        time_offset: i32,
+        aspect: f64,
+    ) -> Result<RadarGrid> {
+        // 横方向のタイル取得範囲 (dx) は ±2 固定なので、view が
+        // はみ出さない範囲にアスペクト比をクランプする
+        let aspect = aspect.clamp(1.0, 2.4);
         // ナウキャストのエンドポイント:
         //   - targetTimes_N1.json : 過去・現在の実況 (basetime == validtime)
         //   - targetTimes_N2.json : 未来予測 (basetime 共通、validtime が +5..+60 分)
@@ -696,18 +706,19 @@ impl WeatherProvider for Jma {
         // 下流コードと変数名を揃えるためのエイリアス
         let z = mz;
 
-        // ---- 3x3 タイル × 4 種類を並列取得 ----
+        // ---- 5x3 タイル × 4 種類を並列取得 ----
         // - 雨雲 grid（数値、Brailleフォールバック用 + max計算用）
         // - 地図ドット（Brailleフォールバック用、現状は使わない予定）
         // - 雨雲 PNG画像（Kitty graphics 用）
         // - 地図 PNG画像（Kitty graphics 用）
-        let mut rain_fetches = Vec::with_capacity(9);
-        let mut map_dot_fetches = Vec::with_capacity(9);
-        let mut rain_img_fetches = Vec::with_capacity(9);
-        let mut map_img_fetches = Vec::with_capacity(9);
-        // 地図は map_z で 3x3、雨雲は rain_z で 3x3。
+        // 横長アスペクト対応のため横方向は ±2 タイル取得する
+        let mut rain_fetches = Vec::with_capacity(15);
+        let mut map_dot_fetches = Vec::with_capacity(15);
+        let mut rain_img_fetches = Vec::with_capacity(15);
+        let mut map_img_fetches = Vec::with_capacity(15);
+        // 地図は map_z で 5x3、雨雲は rain_z で 5x3。
         for dy in -1i32..=1 {
-            for dx in -1i32..=1 {
+            for dx in -2i32..=2 {
                 // 地図側 (map_z)
                 let mtx = cx as i32 + dx;
                 let mty = cy as i32 + dy;
@@ -783,7 +794,8 @@ impl WeatherProvider for Jma {
         // 雨雲は z=10 までしか無いので、map_z>10 の時は雨雲のピクセル解像度が見える。
         let (lat_n_c, lon_w_c) = tile_to_lonlat(map_z, cx, cy);
         let (lat_s_c, lon_e_c) = tile_to_lonlat(map_z, cx + 1, cy + 1);
-        let half_lon = (lon_e_c - lon_w_c) / 2.0;
+        // 横方向はアスペクト比のぶんだけ view を広げる（縦はタイル1枚分のまま）
+        let half_lon = (lon_e_c - lon_w_c) / 2.0 * aspect;
         let half_lat = (lat_n_c - lat_s_c) / 2.0;
         let view_lon_w = lon - half_lon;
         let view_lon_e = lon + half_lon;
@@ -803,7 +815,7 @@ impl WeatherProvider for Jma {
                 let (_zz, tx, ty) = lonlat_to_tile(v_lon, v_lat, z);
                 let dx = tx as i32 - cx as i32;
                 let dy = ty as i32 - cy as i32;
-                if !(-1..=1).contains(&dx) || !(-1..=1).contains(&dy) {
+                if !(-2..=2).contains(&dx) || !(-1..=1).contains(&dy) {
                     continue;
                 }
                 // タイル内のピクセル位置（左上= (lat_n_t, lon_w_t)）
@@ -826,6 +838,7 @@ impl WeatherProvider for Jma {
 
         // ---- Kitty graphics 用合成画像を生成 ----
         let composite_image = build_composite_image(
+            aspect,
             map_z,
             cx,
             cy,
@@ -854,10 +867,11 @@ impl WeatherProvider for Jma {
     }
 }
 
-/// 9 タイルを地理座標系で 768x768 のキャンバスに貼り合わせ、
+/// 5x3 タイルを地理座標系のキャンバスに貼り合わせ、
 /// ユーザー位置を中心にした view 範囲をクロップ。
 /// 雨雲は地図の上に alpha blend で重ねる。
 fn build_composite_image(
+    aspect: f64,
     map_z: u8,
     map_cx: u32,
     map_cy: u32,
@@ -875,11 +889,11 @@ fn build_composite_image(
 ) -> Option<image::DynamicImage> {
     use image::Rgba;
 
-    // 出力解像度。view 範囲は地理座標で「ほぼ正方形」(タイル1枚分=lat/lon 同程度の度差)
-    // なので、ピクセル比も正方形にしないと画像が縦/横に潰れて見える。
+    // 出力解像度。view の地理的な縦横比（≒aspect）とピクセル比を一致させないと
+    // 画像が縦/横に潰れて見える。
     // 表示パネルの幅をレイアウト側で「画像のアスペクト比に合わせる」ことで歪み回避。
-    let out_w: u32 = 1024;
     let out_h: u32 = 1024;
+    let out_w: u32 = ((out_h as f64 * aspect).round() as u32).clamp(1024, 2560);
 
     // 9 タイル合成キャンバスは「中心タイル + 周辺8タイル」= 3 タイル幅 × 3 タイル高
     // タイル1枚=256ピクセル → 合成は 768x768
@@ -899,7 +913,7 @@ fn build_composite_image(
             let (_, mtx, mty) = lonlat_to_tile(v_lon, v_lat, map_z);
             let mdx = mtx as i32 - map_cx as i32;
             let mdy = mty as i32 - map_cy as i32;
-            if (-1..=1).contains(&mdx) && (-1..=1).contains(&mdy) {
+            if (-2..=2).contains(&mdx) && (-1..=1).contains(&mdy) {
                 if let Some(map) = map_imgs.get(&(mdx, mdy)) {
                     let (lat_n_t, lon_w_t) = tile_to_lonlat(map_z, mtx, mty);
                     let (lat_s_t, lon_e_t) = tile_to_lonlat(map_z, mtx + 1, mty + 1);
@@ -912,7 +926,7 @@ fn build_composite_image(
             let (_, rtx, rty) = lonlat_to_tile(v_lon, v_lat, rain_z);
             let rdx = rtx as i32 - rain_cx as i32;
             let rdy = rty as i32 - rain_cy as i32;
-            if (-1..=1).contains(&rdx) && (-1..=1).contains(&rdy) {
+            if (-2..=2).contains(&rdx) && (-1..=1).contains(&rdy) {
                 if let Some(rain) = rain_imgs.get(&(rdx, rdy)) {
                     let (lat_n_t, lon_w_t) = tile_to_lonlat(rain_z, rtx, rty);
                     let (lat_s_t, lon_e_t) = tile_to_lonlat(rain_z, rtx + 1, rty + 1);

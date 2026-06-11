@@ -322,7 +322,15 @@ impl WeatherProvider for OpenMeteo {
         Ok(out)
     }
 
-    async fn radar(&self, lat: f64, lon: f64, zoom: u8, _time_offset: i32) -> Result<RadarGrid> {
+    async fn radar(
+        &self,
+        lat: f64,
+        lon: f64,
+        zoom: u8,
+        _time_offset: i32,
+        aspect: f64,
+    ) -> Result<RadarGrid> {
+        let aspect = aspect.clamp(1.0, 2.4);
         // 外国でもカラー地図 + 雨雲を表示するため、JMA と同様に画像合成を行う。
         // 違いは:
         //   - 雨雲: Open-Meteo の precipitation を多地点で取得 (32x16 grid)
@@ -333,7 +341,8 @@ impl WeatherProvider for OpenMeteo {
         // view 範囲 = map_z タイル1枚分の地理サイズ（ユーザー位置を中央に）
         let (lat_n_c, lon_w_c) = tile_to_lonlat(map_z, mcx, mcy);
         let (lat_s_c, lon_e_c) = tile_to_lonlat(map_z, mcx + 1, mcy + 1);
-        let half_lon = (lon_e_c - lon_w_c) / 2.0;
+        // 横方向はアスペクト比のぶんだけ view を広げる（縦はタイル1枚分のまま）
+        let half_lon = (lon_e_c - lon_w_c) / 2.0 * aspect;
         let half_lat = (lat_n_c - lat_s_c) / 2.0;
         let view_lon_w = lon - half_lon;
         let view_lon_e = lon + half_lon;
@@ -392,10 +401,10 @@ impl WeatherProvider for OpenMeteo {
             }
         }
 
-        // ---- 地図タイルを 3x3 並列取得 ----
-        let mut map_fetches = Vec::with_capacity(9);
+        // ---- 地図タイルを 5x3 並列取得（横長アスペクト対応で横 ±2）----
+        let mut map_fetches = Vec::with_capacity(15);
         for dy in -1i32..=1 {
-            for dx in -1i32..=1 {
+            for dx in -2i32..=2 {
                 let tx = mcx as i32 + dx;
                 let ty = mcy as i32 + dy;
                 if tx < 0 || ty < 0 {
@@ -419,6 +428,7 @@ impl WeatherProvider for OpenMeteo {
 
         // ---- 合成画像生成 ----
         let composite_image = build_composite_image_om(
+            aspect,
             map_z,
             mcx,
             mcy,
@@ -456,6 +466,7 @@ impl WeatherProvider for OpenMeteo {
 /// 地図サンプルは JMA と同じヘルパー (sample_bilinear) を使う。
 #[allow(clippy::too_many_arguments)]
 fn build_composite_image_om(
+    aspect: f64,
     map_z: u8,
     map_cx: u32,
     map_cy: u32,
@@ -471,8 +482,8 @@ fn build_composite_image_om(
 ) -> Option<image::DynamicImage> {
     use image::Rgba;
 
-    let out_w: u32 = 1024;
     let out_h: u32 = 1024;
+    let out_w: u32 = ((out_h as f64 * aspect).round() as u32).clamp(1024, 2560);
     let mut canvas = image::RgbaImage::from_pixel(out_w, out_h, Rgba([255, 255, 255, 255]));
 
     let grid_h = rain_grid.len();
@@ -516,7 +527,7 @@ fn build_composite_image_om(
             let (_, mtx, mty) = lonlat_to_tile(v_lon, v_lat, map_z);
             let mdx = mtx as i32 - map_cx as i32;
             let mdy = mty as i32 - map_cy as i32;
-            if (-1..=1).contains(&mdx) && (-1..=1).contains(&mdy) {
+            if (-2..=2).contains(&mdx) && (-1..=1).contains(&mdy) {
                 if let Some(map) = map_imgs.get(&(mdx, mdy)) {
                     let (lat_n_t, lon_w_t) = tile_to_lonlat(map_z, mtx, mty);
                     let (lat_s_t, lon_e_t) = tile_to_lonlat(map_z, mtx + 1, mty + 1);
