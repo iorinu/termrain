@@ -350,6 +350,8 @@ impl WeatherProvider for OpenMeteo {
         let view_lat_n = lat + half_lat;
 
         // ---- 雨雲を多地点で取得 (32x16 grid を view 範囲内に分布) ----
+        // GETだとURLが8000文字超えて nginx に 414 で弾かれるため POST で送る。
+        // timezone も配列で渡す必要がある（Open-Meteo の仕様）。
         let width: usize = 32;
         let height: usize = 16;
         let mut lats = Vec::with_capacity(width * height);
@@ -359,16 +361,17 @@ impl WeatherProvider for OpenMeteo {
             for i in 0..width {
                 let lon_i =
                     view_lon_w + (view_lon_e - view_lon_w) * (i as f64) / (width as f64 - 1.0);
-                lats.push(format!("{lat_j:.4}"));
-                lons.push(format!("{lon_i:.4}"));
+                lats.push((lat_j * 10000.0).round() / 10000.0);
+                lons.push((lon_i * 10000.0).round() / 10000.0);
             }
         }
-        let url = format!(
-            "https://api.open-meteo.com/v1/forecast?latitude={}&longitude={}\
-             &current=precipitation&timezone=auto",
-            lats.join(","),
-            lons.join(",")
-        );
+        let n = lats.len();
+        let body = serde_json::json!({
+            "latitude": lats,
+            "longitude": lons,
+            "current": ["precipitation"],
+            "timezone": vec!["auto"; n],
+        });
         #[derive(Deserialize)]
         struct MultiCurrent {
             current: Option<MultiCurrentInner>,
@@ -380,7 +383,8 @@ impl WeatherProvider for OpenMeteo {
         }
         let arr: Vec<MultiCurrent> = self
             .client
-            .get(&url)
+            .post("https://api.open-meteo.com/v1/forecast")
+            .json(&body)
             .send()
             .await?
             .error_for_status()?
