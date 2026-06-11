@@ -10,8 +10,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use super::jma::{
-    blend, draw_cross, draw_legend_bar, lonlat_to_tile, rain_to_yahoo, sample_bilinear,
-    tile_to_lonlat,
+    blend, draw_cross, draw_legend_bar, lonlat_to_tile, sample_bilinear, tile_to_lonlat,
 };
 use super::{CurrentWeather, DailyPoint, HourlyPoint, RadarGrid, WeatherIcon, WeatherProvider};
 
@@ -208,21 +207,18 @@ fn parse_local_with_offset(s: &str, offset_seconds: Option<i32>) -> Result<DateT
     Ok(dt.with_timezone(&Local))
 }
 
-/// 後方互換: offset 不明（多地点クエリのレスポンスなど）の場合に Local 解釈する。
-fn parse_local(s: &str) -> Result<DateTime<Local>> {
-    parse_local_with_offset(s, None).or_else(|_| {
-        let ndt = NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M")?;
-        Local
-            .from_local_datetime(&ndt)
-            .single()
-            .context("ローカル時刻の単一解決に失敗")
-    })
-}
-
 #[async_trait]
 impl WeatherProvider for OpenMeteo {
     fn name(&self) -> &'static str {
-        "Open-Meteo"
+        // 天気予報は Open-Meteo、雨雲レーダーは RainViewer のタイル画像を使う
+        "Open-Meteo + RainViewer"
+    }
+
+    fn radar_offset_range(&self) -> (i32, i32) {
+        // RainViewer 無料枠は past のみ（最大 12 フレーム = 過去 2 時間）。
+        // 未来予測の nowcast は有料プランでないと安定して取れないため、
+        // 再生範囲を「過去〜現在」だけにする。
+        (-12, 0)
     }
 
     async fn current(&self, lat: f64, lon: f64) -> Result<CurrentWeather> {
@@ -329,16 +325,22 @@ impl WeatherProvider for OpenMeteo {
         lat: f64,
         lon: f64,
         zoom: u8,
-        _time_offset: i32,
+        time_offset: i32,
         aspect: f64,
     ) -> Result<RadarGrid> {
         let aspect = aspect.clamp(1.0, 2.4);
-        // 外国でもカラー地図 + 雨雲を表示するため、JMA と同様に画像合成を行う。
-        // 違いは:
-        //   - 雨雲: Open-Meteo の precipitation を多地点で取得 (32x16 grid)
-        //   - 地図: CARTO Voyager タイル (世界対応)
+        // 雨雲: RainViewer のタイル画像 (世界対応・無料・レート制限ゆるい)
+        // 地図: CARTO Voyager タイル (世界対応)
+        // Open-Meteo の多地点 precipitation は無料枠のレート制限がきつくて
+        // 512地点クエリだとすぐ 429 になるので RainViewer に切り替えた。
         let map_z: u8 = zoom.min(13);
+        // RainViewer の Free Weather Maps API は z<=7 までしか配信していない
+        // （z=8 以上は世界中どこを取っても "Zoom Level Not Supported" placeholder が返る）。
+        // 有料の Maps API なら z=12 まで対応するが、無料枠でやる以上ここは固定。
+        // 1タイル ~80km 相当だが、雨雲の広域分布を見る用途には十分。
+        let radar_z: u8 = zoom.min(7);
         let (_, mcx, mcy) = lonlat_to_tile(lon, lat, map_z);
+        let (_, rcx, rcy) = lonlat_to_tile(lon, lat, radar_z);
 
         // view 範囲 = map_z タイル1枚分の地理サイズ（ユーザー位置を中央に）
         let (lat_n_c, lon_w_c) = tile_to_lonlat(map_z, mcx, mcy);
@@ -351,41 +353,15 @@ impl WeatherProvider for OpenMeteo {
         let view_lat_s = lat - half_lat;
         let view_lat_n = lat + half_lat;
 
-        // ---- 雨雲を多地点で取得 (32x16 grid を view 範囲内に分布) ----
-        // GETだとURLが8000文字超えて nginx に 414 で弾かれるため POST で送る。
-        // timezone も配列で渡す必要がある（Open-Meteo の仕様）。
-        let width: usize = 32;
-        let height: usize = 16;
-        let mut lats = Vec::with_capacity(width * height);
-        let mut lons = Vec::with_capacity(width * height);
-        for j in 0..height {
-            let lat_j = view_lat_n - (view_lat_n - view_lat_s) * (j as f64) / (height as f64 - 1.0);
-            for i in 0..width {
-                let lon_i =
-                    view_lon_w + (view_lon_e - view_lon_w) * (i as f64) / (width as f64 - 1.0);
-                lats.push(lat_j);
-                lons.push(lon_i);
-            }
-        }
-        let n = lats.len();
-        let body = serde_json::json!({
-            "latitude": lats,
-            "longitude": lons,
-            "current": ["precipitation"],
-            "timezone": vec!["auto"; n],
-        });
-        #[derive(Deserialize)]
-        struct MultiCurrent {
-            utc_offset_seconds: Option<i32>,
-            current: Option<MultiCurrentInner>,
-        }
-        #[derive(Deserialize)]
-        struct MultiCurrentInner {
-            time: String,
-            precipitation: f64,
-        }
+        // ---- RainViewer の利用可能フレーム一覧と地図タイルを並列取得 ----
+        // RainViewer のインデックス JSON は ~数KB の軽いリクエスト。
+        // past: 過去2時間分（10分刻み、最大12フレーム）
+        // nowcast: 未来30分分（10分刻み、3フレーム）
+        let index_fut = self
+            .client
+            .get("https://api.rainviewer.com/public/weather-maps.json")
+            .send();
 
-        // 降水量POSTと地図タイル取得は互いに独立しているので並列化する
         let mut map_fetches = Vec::with_capacity(15);
         for dy in -1i32..=1 {
             for dx in -2i32..=2 {
@@ -402,37 +378,90 @@ impl WeatherProvider for OpenMeteo {
                 });
             }
         }
-        let rain_future = self.client.post(API_BASE).json(&body).send();
-        let (rain_resp, map_results) =
-            tokio::join!(rain_future, futures::future::join_all(map_fetches));
-        let arr: Vec<MultiCurrent> = rain_resp?.error_for_status()?.json().await?;
-        let mut data = vec![vec![0.0f64; width]; height];
-        let mut observed = None;
-        for (idx, item) in arr.iter().enumerate() {
-            if let Some(c) = &item.current {
-                let y = idx / width;
-                let x = idx % width;
-                if y < height {
-                    data[y][x] = c.precipitation.max(0.0);
-                }
-                if observed.is_none() {
-                    observed = Some(parse_local_with_offset(&c.time, item.utc_offset_seconds)?);
-                }
+
+        let (index_resp, map_results) =
+            tokio::join!(index_fut, futures::future::join_all(map_fetches));
+        let index: RvIndex = index_resp?.error_for_status()?.json().await?;
+
+        // time_offset でフレーム選択
+        //   0  → past の最新（=現在の雨雲）
+        //   -N → past の N 個前
+        //   +N → nowcast の N-1 番目
+        //
+        // RainViewer 無料枠は past のみで未来予測がない（nowcast = 0）ことが多いので、
+        // アプリの再生ループ範囲(-6〜+12)に対してフレーム数が足りない。
+        // 範囲外は端にクランプする（=再生は最新まで進んで、loop 巻き戻しで一度だけ過去に戻る）。
+        // modulo 循環は途中で時間が逆走するので避ける。
+        let mut frames = index.radar.past.clone();
+        frames.extend(index.radar.nowcast.iter().cloned());
+        let total = frames.len() as i32;
+        if total == 0 {
+            anyhow::bail!("RainViewer: no radar frames available");
+        }
+        let latest_past_idx = index.radar.past.len().saturating_sub(1) as i32;
+        let pick_idx = (latest_past_idx + time_offset).clamp(0, total - 1) as usize;
+        let frame = &frames[pick_idx];
+
+        // ---- RainViewer の雨雲タイルを並列取得 ----
+        // color=2 (Universal Blue) は JMA に近い青系の配色
+        // options="1_1" = smoothed + with snow
+        //
+        // 地図と違って radar_z は 7 固定（1タイル ~80km）なので、view (~5-20km) は
+        // 通常 radar タイル 1 枚に収まる。view が radar タイル境界を跨ぐときだけ
+        // 最大 4 枚必要になる。view の四隅から含まれるタイル範囲を計算して
+        // その範囲だけフェッチする（5x3=15 を盲目的に取ると 14 枚が無駄になる）。
+        let tile_url_base = format!("{}{}", index.host, frame.path);
+        let color_scheme: u8 = 2;
+        let (_, rtx_w, _) = lonlat_to_tile(view_lon_w, lat, radar_z);
+        let (_, rtx_e, _) = lonlat_to_tile(view_lon_e, lat, radar_z);
+        let (_, _, rty_n) = lonlat_to_tile(lon, view_lat_n, radar_z);
+        let (_, _, rty_s) = lonlat_to_tile(lon, view_lat_s, radar_z);
+        let mut radar_fetches = Vec::new();
+        for ty in rty_n..=rty_s {
+            for tx in rtx_w..=rtx_e {
+                let dx = tx as i32 - rcx as i32;
+                let dy = ty as i32 - rcy as i32;
+                let url = format!("{tile_url_base}/256/{radar_z}/{tx}/{ty}/{color_scheme}/1_1.png");
+                let client = self.client.clone();
+                radar_fetches.push(async move {
+                    let g = fetch_radar_tile(&client, &url).await.ok();
+                    ((dx, dy), g)
+                });
             }
         }
+        let radar_results = futures::future::join_all(radar_fetches).await;
+
         let mut map_imgs: HashMap<(i32, i32), Arc<image::RgbaImage>> = HashMap::new();
         for ((dx, dy), maybe) in map_results {
             if let Some(g) = maybe {
                 map_imgs.insert((dx, dy), g);
             }
         }
+        let mut radar_imgs: HashMap<(i32, i32), Arc<image::RgbaImage>> = HashMap::new();
+        for ((dx, dy), maybe) in radar_results {
+            if let Some(g) = maybe {
+                radar_imgs.insert((dx, dy), g);
+            }
+        }
 
-        // ---- 合成画像生成 ----
-        let composite_image = build_composite_image_om(
+        let observed_at = chrono::DateTime::from_timestamp(frame.time, 0)
+            .map(|dt| dt.with_timezone(&Local))
+            .unwrap_or_else(Local::now);
+
+        // RainViewer は数値ではなく事前色付け画像なので、降水量グリッドは不要。
+        // RadarGrid の互換性のため空グリッドで埋める。
+        let width: usize = 32;
+        let height: usize = 16;
+        let data = vec![vec![0.0f64; width]; height];
+
+        let composite_image = build_composite_image_rv(
             aspect,
             map_z,
             mcx,
             mcy,
+            radar_z,
+            rcx,
+            rcy,
             view_lon_w,
             view_lon_e,
             view_lat_s,
@@ -440,8 +469,7 @@ impl WeatherProvider for OpenMeteo {
             lon,
             lat,
             &map_imgs,
-            &data,
-            ((view_lat_s, view_lon_w), (view_lat_n, view_lon_e)),
+            &radar_imgs,
         );
 
         Ok(RadarGrid {
@@ -451,7 +479,7 @@ impl WeatherProvider for OpenMeteo {
             map_dots: Vec::new(),
             composite_image,
             bounds: ((view_lat_s, view_lon_w), (view_lat_n, view_lon_e)),
-            observed_at: observed.unwrap_or_else(Local::now),
+            observed_at,
         })
     }
 
@@ -463,14 +491,75 @@ impl WeatherProvider for OpenMeteo {
     }
 }
 
-/// Open-Meteo 用合成画像生成（雨雲は数値グリッドから bilinear 補間）。
-/// 地図サンプルは JMA と同じヘルパー (sample_bilinear) を使う。
+// ===== RainViewer のレスポンス型 =====
+//
+// インデックス JSON 例:
+// {
+//   "version": "2.0",
+//   "generated": 1700000000,
+//   "host": "https://tilecache.rainviewer.com",
+//   "radar": {
+//     "past": [{"time": 1699999000, "path": "/v2/radar/1699999000"}, ...],
+//     "nowcast": [{"time": 1700000600, "path": "/v2/radar/nowcast_xxx"}, ...]
+//   }
+// }
+#[derive(Deserialize, Clone)]
+struct RvFrame {
+    time: i64,
+    path: String,
+}
+
+#[derive(Deserialize)]
+struct RvRadar {
+    #[serde(default)]
+    past: Vec<RvFrame>,
+    #[serde(default)]
+    nowcast: Vec<RvFrame>,
+}
+
+#[derive(Deserialize)]
+struct RvIndex {
+    host: String,
+    radar: RvRadar,
+}
+
+/// RainViewer の雨雲タイル PNG を取得して RgbaImage にする。
+/// 失敗時は呼び出し側で None 扱いにして、その位置の雨雲はスキップする。
+///
+/// RainViewer は地域・ズームによってはレーダーデータがなく、
+/// 「Zoom Level Not Supported」と書かれた固定 placeholder PNG を返してくる。
+/// この placeholder は 1370 バイトの 4-bit palette PNG で内容が固定。
+/// 本物の雨雲タイル（雨雲がほぼ無い透明タイルでも 2 KB 以上ある）と
+/// 明確に区別できるので、サイズで弾いて map のみ表示するようにする。
+async fn fetch_radar_tile(client: &reqwest::Client, url: &str) -> Result<Arc<image::RgbaImage>> {
+    let bytes = client
+        .get(url)
+        .send()
+        .await?
+        .error_for_status()?
+        .bytes()
+        .await?;
+    if bytes.len() < 2000 {
+        anyhow::bail!("RainViewer placeholder tile (no radar coverage at this zoom)");
+    }
+    let img = image::load_from_memory(&bytes)
+        .context("RainViewer タイルのデコード失敗")?
+        .to_rgba8();
+    Ok(Arc::new(img))
+}
+
+/// CARTO 地図タイルの上に RainViewer 雨雲タイルをアルファ合成する。
+/// 各 (dx, dy) は中心タイル (cx, cy) からの相対オフセット（-2..=2 × -1..=1 の 5x3）。
+/// 地図と雨雲は別ズーム (map_z >= radar_z) の場合があるので、それぞれ別に lookup する。
 #[allow(clippy::too_many_arguments)]
-fn build_composite_image_om(
+fn build_composite_image_rv(
     aspect: f64,
     map_z: u8,
     map_cx: u32,
     map_cy: u32,
+    radar_z: u8,
+    radar_cx: u32,
+    radar_cy: u32,
     view_lon_w: f64,
     view_lon_e: f64,
     view_lat_s: f64,
@@ -478,45 +567,13 @@ fn build_composite_image_om(
     user_lon: f64,
     user_lat: f64,
     map_imgs: &HashMap<(i32, i32), Arc<image::RgbaImage>>,
-    rain_grid: &[Vec<f64>],
-    rain_bounds: ((f64, f64), (f64, f64)),
+    radar_imgs: &HashMap<(i32, i32), Arc<image::RgbaImage>>,
 ) -> Option<image::DynamicImage> {
     use image::Rgba;
 
     let out_h: u32 = 1024;
     let out_w: u32 = ((out_h as f64 * aspect).round() as u32).clamp(1024, 2560);
     let mut canvas = image::RgbaImage::from_pixel(out_w, out_h, Rgba([255, 255, 255, 255]));
-
-    let grid_h = rain_grid.len();
-    let grid_w = if grid_h > 0 { rain_grid[0].len() } else { 0 };
-    let (rlat_s, rlon_w) = rain_bounds.0;
-    let (rlat_n, rlon_e) = rain_bounds.1;
-    let rlon_span = (rlon_e - rlon_w).max(1e-9);
-    let rlat_span = (rlat_n - rlat_s).max(1e-9);
-
-    // 雨雲 grid (lat-lon) からの bilinear 補間
-    let sample_rain = |lon: f64, lat: f64| -> f64 {
-        if grid_w == 0 || grid_h == 0 {
-            return 0.0;
-        }
-        let fx = (lon - rlon_w) / rlon_span;
-        let fy = (rlat_n - lat) / rlat_span; // 北が上、grid は上から下
-        if !(0.0..=1.0).contains(&fx) || !(0.0..=1.0).contains(&fy) {
-            return 0.0;
-        }
-        let x = (fx * (grid_w as f64 - 1.0)).max(0.0);
-        let y = (fy * (grid_h as f64 - 1.0)).max(0.0);
-        let x0 = x.floor() as usize;
-        let y0 = y.floor() as usize;
-        let x1 = (x0 + 1).min(grid_w - 1);
-        let y1 = (y0 + 1).min(grid_h - 1);
-        let dx = x - x0 as f64;
-        let dy = y - y0 as f64;
-        rain_grid[y0][x0] * (1.0 - dx) * (1.0 - dy)
-            + rain_grid[y0][x1] * dx * (1.0 - dy)
-            + rain_grid[y1][x0] * (1.0 - dx) * dy
-            + rain_grid[y1][x1] * dx * dy
-    };
 
     for j in 0..out_h {
         for i in 0..out_w {
@@ -537,13 +594,27 @@ fn build_composite_image_om(
                     base = sample_bilinear(map, fx, fy);
                 }
             }
-            // 雨雲サンプル (grid bilinear)
-            let mmh = sample_rain(v_lon, v_lat);
-            if let Some((rc, gc, bc, ac)) = rain_to_yahoo(mmh) {
-                let a = ac as f64 / 255.0;
-                base.0[0] = blend(base.0[0], rc, a);
-                base.0[1] = blend(base.0[1], gc, a);
-                base.0[2] = blend(base.0[2], bc, a);
+            // 雨雲サンプル（RainViewer は事前色付け済み RGBA タイル）
+            let (_, rtx, rty) = lonlat_to_tile(v_lon, v_lat, radar_z);
+            let rdx = rtx as i32 - radar_cx as i32;
+            let rdy = rty as i32 - radar_cy as i32;
+            if (-2..=2).contains(&rdx) && (-1..=1).contains(&rdy) {
+                if let Some(radar) = radar_imgs.get(&(rdx, rdy)) {
+                    let (lat_n_t, lon_w_t) = tile_to_lonlat(radar_z, rtx, rty);
+                    let (lat_s_t, lon_e_t) = tile_to_lonlat(radar_z, rtx + 1, rty + 1);
+                    let fx = (v_lon - lon_w_t) / (lon_e_t - lon_w_t);
+                    let fy = (lat_n_t - v_lat) / (lat_n_t - lat_s_t);
+                    let pix = sample_bilinear(radar, fx, fy);
+                    // RainViewer のタイルはフル不透明の領域が多く、そのまま重ねると
+                    // 地図を完全に覆ってしまう。0.55 倍してから合成し、雨雲が
+                    // 地図の上に半透明で乗っているように見せる。
+                    let a = (pix.0[3] as f64 / 255.0) * 0.55;
+                    if a > 0.0 {
+                        base.0[0] = blend(base.0[0], pix.0[0], a);
+                        base.0[1] = blend(base.0[1], pix.0[1], a);
+                        base.0[2] = blend(base.0[2], pix.0[2], a);
+                    }
+                }
             }
             canvas.put_pixel(i, j, base);
         }

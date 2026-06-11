@@ -79,14 +79,20 @@ fn draw_image_radar(f: &mut Frame, area: Rect, state: &mut AppState) {
         crate::i18n::Language::Japanese => "地図",
         crate::i18n::Language::English => "Map",
     };
+    // 数値データがない（=画像のみのプロバイダ、例: RainViewer）場合は max を表示しない
+    let max_part = if max_mmh > 0.0 {
+        format!("  max {max_mmh:.1}mm/h")
+    } else {
+        String::new()
+    };
     let title = format!(
-        "{}{}  {} ({}){}  max {:.1}mm/h  [{}: {}]",
+        "{}{}  {} ({}){}{}  [{}: {}]",
         loading_mark,
         s.radar_title,
         grid.observed_at.format("%H:%M"),
         rel,
         play,
-        max_mmh,
+        max_part,
         map_word,
         map_attrib,
     );
