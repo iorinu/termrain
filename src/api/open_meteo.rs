@@ -417,9 +417,7 @@ impl WeatherProvider for OpenMeteo {
                 }
                 let tx = tx as u32;
                 let ty = ty as u32;
-                let url = format!(
-                    "{tile_url_base}/256/{radar_z}/{tx}/{ty}/{color_scheme}/1_1.png"
-                );
+                let url = format!("{tile_url_base}/256/{radar_z}/{tx}/{ty}/{color_scheme}/1_1.png");
                 let client = self.client.clone();
                 radar_fetches.push(async move {
                     let g = fetch_radar_tile(&client, &url).await.ok();
