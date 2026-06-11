@@ -1,6 +1,6 @@
 [package]
 name = "termrain"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 description = "Terminal weather forecast and rain radar TUI (JMA + Open-Meteo, Kitty graphics)"
 license = "MIT"
