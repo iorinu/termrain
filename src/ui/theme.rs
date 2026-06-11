@@ -28,3 +28,35 @@ pub const BORDER: Color = Color::Rgb(88, 91, 112);
 pub const TEMP: Color = Color::Rgb(243, 139, 168);
 /// 降水（青系）
 pub const RAIN: Color = Color::Rgb(137, 180, 250);
+/// 行ハイライト背景（現在時刻の行など）
+pub const HIGHLIGHT_BG: Color = Color::Rgb(49, 50, 68);
+
+/// 気温 → 色のグラデーション（寒=青系 → 暑=赤系）
+///
+/// Catppuccin の色をストップにして線形補間する。
+/// 週間予報の温度バーや気温表示の色付けに使う。
+pub fn temp_color(t: f64) -> Color {
+    const STOPS: [(f64, (u8, u8, u8)); 6] = [
+        (-5.0, (116, 199, 236)), // sapphire（寒い）
+        (5.0, (137, 220, 235)),  // sky
+        (12.0, (166, 227, 161)), // green
+        (20.0, (249, 226, 175)), // yellow
+        (27.0, (250, 179, 135)), // peach
+        (33.0, (243, 139, 168)), // red（暑い）
+    ];
+    if t <= STOPS[0].0 {
+        let (r, g, b) = STOPS[0].1;
+        return Color::Rgb(r, g, b);
+    }
+    for w in STOPS.windows(2) {
+        let (t0, c0) = w[0];
+        let (t1, c1) = w[1];
+        if t <= t1 {
+            let k = (t - t0) / (t1 - t0);
+            let lerp = |a: u8, b: u8| (a as f64 + (b as f64 - a as f64) * k).round() as u8;
+            return Color::Rgb(lerp(c0.0, c1.0), lerp(c0.1, c1.1), lerp(c0.2, c1.2));
+        }
+    }
+    let (r, g, b) = STOPS[STOPS.len() - 1].1;
+    Color::Rgb(r, g, b)
+}
