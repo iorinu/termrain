@@ -402,21 +402,25 @@ impl WeatherProvider for OpenMeteo {
         let pick_idx = (latest_past_idx + time_offset).clamp(0, total - 1) as usize;
         let frame = &frames[pick_idx];
 
-        // ---- RainViewer の雨雲タイルを並列取得（5x3 範囲、radar_z） ----
+        // ---- RainViewer の雨雲タイルを並列取得 ----
         // color=2 (Universal Blue) は JMA に近い青系の配色
         // options="1_1" = smoothed + with snow
+        //
+        // 地図と違って radar_z は 7 固定（1タイル ~80km）なので、view (~5-20km) は
+        // 通常 radar タイル 1 枚に収まる。view が radar タイル境界を跨ぐときだけ
+        // 最大 4 枚必要になる。view の四隅から含まれるタイル範囲を計算して
+        // その範囲だけフェッチする（5x3=15 を盲目的に取ると 14 枚が無駄になる）。
         let tile_url_base = format!("{}{}", index.host, frame.path);
         let color_scheme: u8 = 2;
-        let mut radar_fetches = Vec::with_capacity(15);
-        for dy in -1i32..=1 {
-            for dx in -2i32..=2 {
-                let tx = rcx as i32 + dx;
-                let ty = rcy as i32 + dy;
-                if tx < 0 || ty < 0 {
-                    continue;
-                }
-                let tx = tx as u32;
-                let ty = ty as u32;
+        let (_, rtx_w, _) = lonlat_to_tile(view_lon_w, lat, radar_z);
+        let (_, rtx_e, _) = lonlat_to_tile(view_lon_e, lat, radar_z);
+        let (_, _, rty_n) = lonlat_to_tile(lon, view_lat_n, radar_z);
+        let (_, _, rty_s) = lonlat_to_tile(lon, view_lat_s, radar_z);
+        let mut radar_fetches = Vec::new();
+        for ty in rty_n..=rty_s {
+            for tx in rtx_w..=rtx_e {
+                let dx = tx as i32 - rcx as i32;
+                let dy = ty as i32 - rcy as i32;
                 let url = format!("{tile_url_base}/256/{radar_z}/{tx}/{ty}/{color_scheme}/1_1.png");
                 let client = self.client.clone();
                 radar_fetches.push(async move {
