@@ -122,6 +122,12 @@ pub trait WeatherProvider: Send + Sync {
 
     /// 表示言語の切替（Open-Meteo が wmo_to_text の言語切替に使う）
     fn set_language(&self, _lang: crate::i18n::Language) {}
+
+    /// レーダー再生・スクラブで有効な time_offset の範囲 (min, max)。
+    /// JMA は過去 + 未来予測あり、RainViewer 経由の Open-Meteo は過去のみ。
+    fn radar_offset_range(&self) -> (i32, i32) {
+        (-6, 12)
+    }
 }
 
 /// 国コードからプロバイダーを選択。

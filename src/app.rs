@@ -331,9 +331,10 @@ pub async fn run(args: Args) -> Result<()> {
             // 雨雲アニメーション (playing 中のみ反映)
             _ = anim_tick.tick() => {
                 if state.radar_playing {
+                    let (off_min, off_max) = provider.radar_offset_range();
                     state.radar_time_offset += 1;
-                    if state.radar_time_offset > 12 {
-                        state.radar_time_offset = -6;
+                    if state.radar_time_offset > off_max {
+                        state.radar_time_offset = off_min;
                     }
                     state.radar_loading = true;
                     spawn_radar(provider.clone(), state.config.clone(), state.radar_time_offset, state.radar_aspect, tx.clone());
@@ -487,9 +488,10 @@ fn handle_event(
         KeyCode::Char('l') => shift_location(state, 0.02, 0.0, provider.clone(), tx.clone()),
         KeyCode::Char('j') => shift_location(state, 0.0, -0.02, provider.clone(), tx.clone()),
         KeyCode::Char('k') => shift_location(state, 0.0, 0.02, provider.clone(), tx.clone()),
-        // 時系列スクラブ: , (<) 過去、. (>) 未来。clamp は API 側でやる。
+        // 時系列スクラブ: , (<) 過去、. (>) 未来。範囲はプロバイダ依存。
         KeyCode::Char(',') | KeyCode::Char('<') => {
-            state.radar_time_offset = (state.radar_time_offset - 1).max(-20);
+            let (off_min, _) = provider.radar_offset_range();
+            state.radar_time_offset = (state.radar_time_offset - 1).max(off_min);
             state.radar_loading = true;
             spawn_radar(
                 provider.clone(),
@@ -500,7 +502,8 @@ fn handle_event(
             );
         }
         KeyCode::Char('.') | KeyCode::Char('>') => {
-            state.radar_time_offset = (state.radar_time_offset + 1).min(20);
+            let (_, off_max) = provider.radar_offset_range();
+            state.radar_time_offset = (state.radar_time_offset + 1).min(off_max);
             state.radar_loading = true;
             spawn_radar(
                 provider.clone(),
