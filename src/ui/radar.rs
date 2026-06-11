@@ -124,6 +124,8 @@ pub fn draw(f: &mut Frame, area: Rect, state: &mut AppState) {
         return;
     }
 
+    let s = crate::i18n::strings(state.config.ui.language);
+
     // レーダーは地図表示なので、wezterm の半透明背景が透けると線も雨雲も読めない。
     // ここだけパネル全体を黒で塗ってベタ地図画面にする。
     // titled_block では bg を制御していないので、専用に Block を組み立てる。
@@ -134,7 +136,7 @@ pub fn draw(f: &mut Frame, area: Rect, state: &mut AppState) {
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Gray))
             .title(Span::styled(
-                "雨雲レーダー (読み込み中…)",
+                format!("{} ({})", s.radar_title, s.loading),
                 Style::default()
                     .fg(Color::Cyan)
                     .add_modifier(Modifier::BOLD),
@@ -150,7 +152,8 @@ pub fn draw(f: &mut Frame, area: Rect, state: &mut AppState) {
         .flat_map(|r| r.iter().copied())
         .fold(0.0_f64, f64::max);
     let title = format!(
-        "雨雲レーダー  {}  max {:.1}mm/h",
+        "{}  {}  max {:.1}mm/h",
+        s.radar_title,
         grid.observed_at.format("%m/%d %H:%M"),
         max_mmh
     );
