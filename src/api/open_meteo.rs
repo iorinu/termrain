@@ -15,6 +15,8 @@ use super::jma::{
 };
 use super::{CurrentWeather, DailyPoint, HourlyPoint, RadarGrid, WeatherIcon, WeatherProvider};
 
+const API_BASE: &str = "https://api.open-meteo.com/v1/forecast";
+
 type MapTileKey = (&'static str, u8, u32, u32);
 
 pub struct OpenMeteo {
@@ -225,7 +227,7 @@ impl WeatherProvider for OpenMeteo {
 
     async fn current(&self, lat: f64, lon: f64) -> Result<CurrentWeather> {
         let url = format!(
-            "https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}\
+            "{API_BASE}?latitude={lat}&longitude={lon}\
              &current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m\
              &timezone=auto"
         );
@@ -252,7 +254,7 @@ impl WeatherProvider for OpenMeteo {
 
     async fn hourly(&self, lat: f64, lon: f64) -> Result<Vec<HourlyPoint>> {
         let url = format!(
-            "https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}\
+            "{API_BASE}?latitude={lat}&longitude={lon}\
              &hourly=temperature_2m,precipitation,precipitation_probability,weather_code\
              &forecast_days=2&timezone=auto"
         );
@@ -290,7 +292,7 @@ impl WeatherProvider for OpenMeteo {
 
     async fn daily(&self, lat: f64, lon: f64) -> Result<Vec<DailyPoint>> {
         let url = format!(
-            "https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}\
+            "{API_BASE}?latitude={lat}&longitude={lon}\
              &daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max\
              &forecast_days=7&timezone=auto"
         );
@@ -350,6 +352,8 @@ impl WeatherProvider for OpenMeteo {
         let view_lat_n = lat + half_lat;
 
         // ---- 雨雲を多地点で取得 (32x16 grid を view 範囲内に分布) ----
+        // GETだとURLが8000文字超えて nginx に 414 で弾かれるため POST で送る。
+        // timezone も配列で渡す必要がある（Open-Meteo の仕様）。
         let width: usize = 32;
         let height: usize = 16;
         let mut lats = Vec::with_capacity(width * height);
@@ -359,18 +363,20 @@ impl WeatherProvider for OpenMeteo {
             for i in 0..width {
                 let lon_i =
                     view_lon_w + (view_lon_e - view_lon_w) * (i as f64) / (width as f64 - 1.0);
-                lats.push(format!("{lat_j:.4}"));
-                lons.push(format!("{lon_i:.4}"));
+                lats.push(lat_j);
+                lons.push(lon_i);
             }
         }
-        let url = format!(
-            "https://api.open-meteo.com/v1/forecast?latitude={}&longitude={}\
-             &current=precipitation&timezone=auto",
-            lats.join(","),
-            lons.join(",")
-        );
+        let n = lats.len();
+        let body = serde_json::json!({
+            "latitude": lats,
+            "longitude": lons,
+            "current": ["precipitation"],
+            "timezone": vec!["auto"; n],
+        });
         #[derive(Deserialize)]
         struct MultiCurrent {
+            utc_offset_seconds: Option<i32>,
             current: Option<MultiCurrentInner>,
         }
         #[derive(Deserialize)]
@@ -378,30 +384,8 @@ impl WeatherProvider for OpenMeteo {
             time: String,
             precipitation: f64,
         }
-        let arr: Vec<MultiCurrent> = self
-            .client
-            .get(&url)
-            .send()
-            .await?
-            .error_for_status()?
-            .json()
-            .await?;
-        let mut data = vec![vec![0.0f64; width]; height];
-        let mut observed = None;
-        for (idx, item) in arr.iter().enumerate() {
-            if let Some(c) = &item.current {
-                let y = idx / width;
-                let x = idx % width;
-                if y < height {
-                    data[y][x] = c.precipitation.max(0.0);
-                }
-                if observed.is_none() {
-                    observed = Some(parse_local(&c.time)?);
-                }
-            }
-        }
 
-        // ---- 地図タイルを 5x3 並列取得（横長アスペクト対応で横 ±2）----
+        // 降水量POSTと地図タイル取得は互いに独立しているので並列化する
         let mut map_fetches = Vec::with_capacity(15);
         for dy in -1i32..=1 {
             for dx in -2i32..=2 {
@@ -418,7 +402,24 @@ impl WeatherProvider for OpenMeteo {
                 });
             }
         }
-        let map_results = futures::future::join_all(map_fetches).await;
+        let rain_future = self.client.post(API_BASE).json(&body).send();
+        let (rain_resp, map_results) =
+            tokio::join!(rain_future, futures::future::join_all(map_fetches));
+        let arr: Vec<MultiCurrent> = rain_resp?.error_for_status()?.json().await?;
+        let mut data = vec![vec![0.0f64; width]; height];
+        let mut observed = None;
+        for (idx, item) in arr.iter().enumerate() {
+            if let Some(c) = &item.current {
+                let y = idx / width;
+                let x = idx % width;
+                if y < height {
+                    data[y][x] = c.precipitation.max(0.0);
+                }
+                if observed.is_none() {
+                    observed = Some(parse_local_with_offset(&c.time, item.utc_offset_seconds)?);
+                }
+            }
+        }
         let mut map_imgs: HashMap<(i32, i32), Arc<image::RgbaImage>> = HashMap::new();
         for ((dx, dy), maybe) in map_results {
             if let Some(g) = maybe {
