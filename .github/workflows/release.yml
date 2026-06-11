@@ -129,6 +129,8 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     steps:
+      - uses: actions/checkout@v4
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -138,62 +140,4 @@ jobs:
         env:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           VERSION: ${{ github.ref_name }}
-        run: |
-          SHA_ARM=$(awk '{print $1}' artifacts/aarch64-apple-darwin/termrain-${VERSION}-aarch64-apple-darwin.tar.gz.sha256)
-          SHA_INTEL=$(awk '{print $1}' artifacts/x86_64-apple-darwin/termrain-${VERSION}-x86_64-apple-darwin.tar.gz.sha256)
-          SHA_LINUX=$(awk '{print $1}' artifacts/x86_64-unknown-linux-gnu/termrain-${VERSION}-x86_64-unknown-linux-gnu.tar.gz.sha256)
-          VER=${VERSION#v}
-
-          cat > termrain.rb << FORMULA
-          class Termrain < Formula
-            desc "Terminal weather forecast and rain radar TUI (JMA + Open-Meteo, Kitty graphics)"
-            homepage "https://github.com/iorinu/termrain"
-            version "${VER}"
-            license "MIT"
-
-            if OS.mac?
-              if Hardware::CPU.arm?
-                url "https://github.com/iorinu/termrain/releases/download/${VERSION}/termrain-${VERSION}-aarch64-apple-darwin.tar.gz"
-                sha256 "${SHA_ARM}"
-              end
-              if Hardware::CPU.intel?
-                url "https://github.com/iorinu/termrain/releases/download/${VERSION}/termrain-${VERSION}-x86_64-apple-darwin.tar.gz"
-                sha256 "${SHA_INTEL}"
-              end
-            end
-            if OS.linux? && Hardware::CPU.intel?
-              url "https://github.com/iorinu/termrain/releases/download/${VERSION}/termrain-${VERSION}-x86_64-unknown-linux-gnu.tar.gz"
-              sha256 "${SHA_LINUX}"
-            end
-
-            def install
-              bin.install "termrain"
-
-              doc_files = Dir["README.*", "readme.*", "LICENSE", "LICENSE.*", "CHANGELOG.*"]
-              leftover = Dir["*"] - doc_files - ["termrain"]
-              pkgshare.install(*leftover) unless leftover.empty?
-            end
-
-            test do
-              assert_match version.to_s, shell_output("#{bin}/termrain --version")
-            end
-          end
-          FORMULA
-
-          # heredoc のインデント除去
-          sed -i 's/^          //' termrain.rb
-
-          # 現在のファイル SHA を取得
-          FILE_SHA=$(curl -s \
-            -H "Authorization: token $HOMEBREW_TAP_TOKEN" \
-            https://api.github.com/repos/iorinu/homebrew-tap/contents/Formula/termrain.rb \
-            | jq -r '.sha')
-
-          # base64 エンコードして API で更新
-          CONTENT=$(base64 -w0 termrain.rb)
-          curl -s -X PUT \
-            -H "Authorization: token $HOMEBREW_TAP_TOKEN" \
-            -H "Content-Type: application/json" \
-            https://api.github.com/repos/iorinu/homebrew-tap/contents/Formula/termrain.rb \
-            -d "{\"message\":\"chore: bump termrain to ${VERSION}\",\"content\":\"${CONTENT}\",\"sha\":\"${FILE_SHA}\"}" \
-            | jq -r '.commit.html_url // .message'
+        run: python3 .github/scripts/update_homebrew.py
