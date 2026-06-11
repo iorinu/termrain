@@ -402,16 +402,10 @@ impl WeatherProvider for OpenMeteo {
                 });
             }
         }
-        let rain_future = self
-            .client
-            .post(API_BASE)
-            .json(&body)
-            .send();
-        let (rain_resp, map_results) = tokio::join!(rain_future, futures::future::join_all(map_fetches));
-        let arr: Vec<MultiCurrent> = rain_resp?
-            .error_for_status()?
-            .json()
-            .await?;
+        let rain_future = self.client.post(API_BASE).json(&body).send();
+        let (rain_resp, map_results) =
+            tokio::join!(rain_future, futures::future::join_all(map_fetches));
+        let arr: Vec<MultiCurrent> = rain_resp?.error_for_status()?.json().await?;
         let mut data = vec![vec![0.0f64; width]; height];
         let mut observed = None;
         for (idx, item) in arr.iter().enumerate() {
