@@ -25,6 +25,23 @@ use ratatui::widgets::{Block, BorderType, Borders, Paragraph};
 
 use crate::app::AppState;
 
+/// 左パネル（現在天気 + 週間予報）の固定幅
+const LEFT_W: u16 = 28;
+/// 右パネル（Hourly リスト）の目標幅。1カラムぶん + 枠線。
+const SIDE_TARGET_W: u16 = 30;
+
+/// 端末サイズから、レーダー合成画像に要求する理想アスペクト比（横/縦）を計算する。
+///
+/// レイアウト（左 28 + 右 30、上下のヘッダー/時間別/フッターで 10 行）を引いた
+/// レーダー領域のセル数に、フォントのピクセル比を掛けて実際の縦横比を出す。
+/// `font` はフォントのピクセルサイズ。取れないときは一般的な 1:2 とみなす。
+pub fn desired_radar_aspect(cols: u16, rows: u16, font: Option<ratatui_image::FontSize>) -> f64 {
+    let radar_w = cols.saturating_sub(LEFT_W + SIDE_TARGET_W + 2).max(10) as f64;
+    let radar_h = rows.saturating_sub(10 + 2).max(10) as f64;
+    let (fw, fh) = font.map(|f| (f.width, f.height)).unwrap_or((8, 16));
+    ((radar_w * fw as f64) / (radar_h * fh as f64)).clamp(1.0, 2.4)
+}
+
 pub fn draw(f: &mut Frame, state: &mut AppState) {
     let size = f.area();
 
@@ -57,8 +74,17 @@ pub fn draw(f: &mut Frame, state: &mut AppState) {
         1.0
     };
     let radar_h = chunks[1].height;
-    let mut radar_w_cells = ((radar_h as f32) * 2.0 * radar_aspect) as u16;
-    const LEFT_W: u16 = 28;
+    // 画像の実アスペクト比からパネル幅を決める（画像を歪ませない）。
+    // フォントのピクセル比が取れればそれを使い、無ければ 1:2 とみなす。
+    let cell_ratio = state
+        .image_picker
+        .as_ref()
+        .map(|p| {
+            let f = p.font_size();
+            f.height as f32 / f.width as f32
+        })
+        .unwrap_or(2.0);
+    let mut radar_w_cells = ((radar_h as f32) * cell_ratio * radar_aspect) as u16;
     const SIDE_MIN_W: u16 = 18;
     let total_w = chunks[1].width;
     let reserved = LEFT_W + SIDE_MIN_W;

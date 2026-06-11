@@ -106,7 +106,16 @@ pub trait WeatherProvider: Send + Sync {
     async fn daily(&self, lat: f64, lon: f64) -> Result<Vec<DailyPoint>>;
     /// `time_offset` は targetTimes 配列内での相対インデックス。
     /// 0=最新（現在）、負=過去、正=未来予測。範囲外は最寄りにクランプ。
-    async fn radar(&self, lat: f64, lon: f64, zoom: u8, time_offset: i32) -> Result<RadarGrid>;
+    /// `aspect` は合成画像の横/縦比。1.0 で正方形、>1 で横長
+    /// （ワイドターミナルでレーダーパネルを使い切るため）。
+    async fn radar(
+        &self,
+        lat: f64,
+        lon: f64,
+        zoom: u8,
+        time_offset: i32,
+        aspect: f64,
+    ) -> Result<RadarGrid>;
 
     /// 背景地図スタイルの切替（JMA だけが対応、Open-Meteo は無視）
     fn set_map_style(&self, _style: crate::config::MapStyle) {}

@@ -56,6 +56,9 @@ pub struct AppState {
     /// 雨雲レーダーの取得中フラグ。spawn_radar で true、Msg::Radar 受信で false。
     /// 時刻スクラブやズーム中に「いま処理中」を UI で示すために使う。
     pub radar_loading: bool,
+    /// 合成画像に要求するアスペクト比（横/縦）。端末サイズから計算し、
+    /// ワイドターミナルではレーダーを横長にしてパネルを使い切る。
+    pub radar_aspect: f64,
     pub last_error: Option<String>,
     pub quit: bool,
 }
@@ -228,6 +231,11 @@ pub async fn run(args: Args) -> Result<()> {
         }
     };
 
+    // 初回フェッチ用のアスペクト比は起動時の端末サイズから計算する
+    let (term_w, term_h) = crossterm::terminal::size().unwrap_or((120, 40));
+    let font_size = image_picker.as_ref().map(|p| p.font_size());
+    let radar_aspect = crate::ui::desired_radar_aspect(term_w, term_h, font_size);
+
     // 5) AppState を作って TUI を起動
     let mut state = AppState {
         config,
@@ -245,6 +253,7 @@ pub async fn run(args: Args) -> Result<()> {
         show_help: false,
         spinner_frame: 0,
         radar_loading: false,
+        radar_aspect,
         last_error: None,
         quit: false,
     };
@@ -259,6 +268,7 @@ pub async fn run(args: Args) -> Result<()> {
         provider.clone(),
         state.config.clone(),
         state.radar_time_offset,
+        state.radar_aspect,
         tx.clone(),
     );
     spawn_map_load(tx.clone());
@@ -316,7 +326,7 @@ pub async fn run(args: Args) -> Result<()> {
                     sleep(Duration::from_secs(60 * 60 * 24)).await;
                 }
             } => {
-                spawn_fetch(provider.clone(), state.config.clone(), state.radar_time_offset, tx.clone());
+                spawn_fetch(provider.clone(), state.config.clone(), state.radar_time_offset, state.radar_aspect, tx.clone());
             }
             // 雨雲アニメーション (playing 中のみ反映)
             _ = anim_tick.tick() => {
@@ -326,7 +336,7 @@ pub async fn run(args: Args) -> Result<()> {
                         state.radar_time_offset = -6;
                     }
                     state.radar_loading = true;
-                    spawn_radar(provider.clone(), state.config.clone(), state.radar_time_offset, tx.clone());
+                    spawn_radar(provider.clone(), state.config.clone(), state.radar_time_offset, state.radar_aspect, tx.clone());
                 }
             }
             // スピナー進行: 何かしらロード中 or splash 中なら再描画
@@ -397,6 +407,24 @@ fn handle_event(
     provider: &Arc<dyn WeatherProvider>,
     tx: &mpsc::UnboundedSender<Msg>,
 ) -> bool {
+    // リサイズ時: 理想アスペクト比が大きく変わったらレーダーを再取得する
+    // （ドラッグ中のイベント連発は radar_loading ガードで間引く）
+    if let Event::Resize(w, h) = ev {
+        let font = state.image_picker.as_ref().map(|p| p.font_size());
+        let desired = crate::ui::desired_radar_aspect(w, h, font);
+        if (desired - state.radar_aspect).abs() > 0.15 && !state.radar_loading {
+            state.radar_aspect = desired;
+            state.radar_loading = true;
+            spawn_radar(
+                provider.clone(),
+                state.config.clone(),
+                state.radar_time_offset,
+                state.radar_aspect,
+                tx.clone(),
+            );
+        }
+        return true;
+    }
     let Event::Key(k) = ev else { return false };
     if k.kind != KeyEventKind::Press {
         return false;
@@ -427,6 +455,7 @@ fn handle_event(
                 provider.clone(),
                 state.config.clone(),
                 state.radar_time_offset,
+                state.radar_aspect,
                 tx.clone(),
             );
         }
@@ -438,6 +467,7 @@ fn handle_event(
                 provider.clone(),
                 state.config.clone(),
                 state.radar_time_offset,
+                state.radar_aspect,
                 tx.clone(),
             );
         }
@@ -448,6 +478,7 @@ fn handle_event(
                 provider.clone(),
                 state.config.clone(),
                 state.radar_time_offset,
+                state.radar_aspect,
                 tx.clone(),
             );
         }
@@ -464,6 +495,7 @@ fn handle_event(
                 provider.clone(),
                 state.config.clone(),
                 state.radar_time_offset,
+                state.radar_aspect,
                 tx.clone(),
             );
         }
@@ -474,6 +506,7 @@ fn handle_event(
                 provider.clone(),
                 state.config.clone(),
                 state.radar_time_offset,
+                state.radar_aspect,
                 tx.clone(),
             );
         }
@@ -490,6 +523,7 @@ fn handle_event(
                 provider.clone(),
                 state.config.clone(),
                 state.radar_time_offset,
+                state.radar_aspect,
                 tx.clone(),
             );
         }
@@ -508,13 +542,20 @@ fn shift_location(
     state.config.location.longitude += dlon;
     state.config.location.latitude += dlat;
     state.radar_loading = true;
-    spawn_radar(provider, state.config.clone(), state.radar_time_offset, tx);
+    spawn_radar(
+        provider,
+        state.config.clone(),
+        state.radar_time_offset,
+        state.radar_aspect,
+        tx,
+    );
 }
 
 fn spawn_fetch(
     provider: Arc<dyn WeatherProvider>,
     cfg: Config,
     time_offset: i32,
+    aspect: f64,
     tx: mpsc::UnboundedSender<Msg>,
 ) {
     let lat = cfg.location.latitude;
@@ -568,7 +609,7 @@ fn spawn_fetch(
         let p = provider;
         let tx = tx.clone();
         tokio::spawn(async move {
-            match p.radar(lat, lon, zoom, time_offset).await {
+            match p.radar(lat, lon, zoom, time_offset, aspect).await {
                 Ok(r) => {
                     let _ = tx.send(Msg::Radar(r));
                 }
@@ -584,13 +625,14 @@ fn spawn_radar(
     provider: Arc<dyn WeatherProvider>,
     cfg: Config,
     time_offset: i32,
+    aspect: f64,
     tx: mpsc::UnboundedSender<Msg>,
 ) {
     let lat = cfg.location.latitude;
     let lon = cfg.location.longitude;
     let zoom = cfg.radar.zoom;
     tokio::spawn(async move {
-        match provider.radar(lat, lon, zoom, time_offset).await {
+        match provider.radar(lat, lon, zoom, time_offset, aspect).await {
             Ok(r) => {
                 let _ = tx.send(Msg::Radar(r));
             }

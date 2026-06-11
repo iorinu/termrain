@@ -27,9 +27,17 @@ pub fn draw(f: &mut Frame, area: Rect, state: &AppState) {
         return;
     }
 
+    // 現在時刻を含む時間帯から表示（過去分は出さない）
+    let now = chrono::Local::now();
+    let start = state
+        .hourly
+        .iter()
+        .position(|p| p.time + chrono::Duration::hours(1) > now)
+        .unwrap_or(0);
     // 表示数は端末幅から逆算（最大 48 時間）
     let take = (inner.width as usize).saturating_sub(4).min(48).max(8);
-    let points: Vec<&crate::api::HourlyPoint> = state.hourly.iter().take(take).collect();
+    let points: Vec<&crate::api::HourlyPoint> =
+        state.hourly.iter().skip(start).take(take).collect();
 
     // 気温折れ線データ
     let temp_data: Vec<(f64, f64)> = points
@@ -82,7 +90,10 @@ pub fn draw(f: &mut Frame, area: Rect, state: &AppState) {
         x_labels.push(Span::styled(text, Style::default().fg(theme::SUBTLE)));
     }
 
+    // Chart は自身の style で領域を塗りつぶすため、bg を明示しないと
+    // ブロックで塗った背景がリセットされ、半透明ターミナルでは壁紙が透ける
     let chart = Chart::new(datasets)
+        .style(Style::default().bg(theme::BG))
         .x_axis(
             Axis::default()
                 .style(Style::default().fg(theme::SUBTLE))
@@ -94,8 +105,14 @@ pub fn draw(f: &mut Frame, area: Rect, state: &AppState) {
                 .style(Style::default().fg(theme::SUBTLE))
                 .bounds([temp_min - pad, temp_max + pad])
                 .labels(vec![
-                    Span::raw(format!("{:.0}", temp_min - pad)),
-                    Span::raw(format!("{:.0}", temp_max + pad)),
+                    Span::styled(
+                        format!("{:.0}°", temp_min - pad),
+                        Style::default().fg(theme::temp_color(temp_min)),
+                    ),
+                    Span::styled(
+                        format!("{:.0}°", temp_max + pad),
+                        Style::default().fg(theme::temp_color(temp_max)),
+                    ),
                 ]),
         );
 
@@ -111,51 +128,57 @@ pub fn draw(f: &mut Frame, area: Rect, state: &AppState) {
         .iter()
         .any(|p| p.precipitation_prob_pct.is_some_and(|v| v > 0.0));
 
-    let (bars, label_text) = if has_mm {
+    // 降水量は時間ごとに強度が違うので、1文字ずつ色を変えた Span にする
+    let (bar_spans, label_text) = if has_mm {
         let max_p = points
             .iter()
             .map(|p| p.precipitation_mm)
             .fold(0.0_f64, f64::max)
             .max(1.0);
-        let bars: String = points
+        let spans: Vec<Span> = points
             .iter()
             .map(|p| {
                 if p.precipitation_mm <= 0.0 {
-                    ' '
+                    Span::raw(" ")
                 } else {
                     let ratio = (p.precipitation_mm / max_p).clamp(0.0, 1.0);
                     let idx = ((ratio * (bar_chars.len() as f64 - 1.0)).round() as usize)
                         .min(bar_chars.len() - 1);
-                    bar_chars[idx]
+                    let color = crate::render::color::precipitation_color(p.precipitation_mm)
+                        .unwrap_or(theme::RAIN);
+                    Span::styled(bar_chars[idx].to_string(), Style::default().fg(color))
                 }
             })
             .collect();
         let label = s
             .precip_amount_label
             .replace("{:.1}", &format!("{:.1}", max_p));
-        (bars, label)
+        (spans, label)
     } else if has_pop {
         // 降水確率 (0-100%)
-        let bars: String = points
+        let spans: Vec<Span> = points
             .iter()
             .map(|p| {
                 let v = p.precipitation_prob_pct.unwrap_or(0.0);
                 if v <= 0.0 {
-                    ' '
+                    Span::raw(" ")
                 } else {
                     let ratio = (v / 100.0).clamp(0.0, 1.0);
                     let idx = ((ratio * (bar_chars.len() as f64 - 1.0)).round() as usize)
                         .min(bar_chars.len() - 1);
-                    bar_chars[idx]
+                    Span::styled(bar_chars[idx].to_string(), Style::default().fg(theme::RAIN))
                 }
             })
             .collect();
-        (bars, s.precip_prob_label.to_string())
+        (spans, s.precip_prob_label.to_string())
     } else {
-        (" ".repeat(points.len()), s.no_precip_data.to_string())
+        (
+            vec![Span::raw(" ".repeat(points.len()))],
+            s.no_precip_data.to_string(),
+        )
     };
 
-    let bar_line = Line::from(Span::styled(bars, Style::default().fg(theme::RAIN)));
+    let bar_line = Line::from(bar_spans);
     let label = Line::from(Span::styled(label_text, Style::default().fg(theme::SUBTLE)));
     let p = Paragraph::new(vec![bar_line, label]);
     f.render_widget(p, split[1]);

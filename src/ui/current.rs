@@ -48,35 +48,40 @@ pub fn draw(f: &mut Frame, area: Rect, state: &AppState) {
             ),
         ]));
         lines.push(Line::from(""));
+        // 気温をヒーロー表示（温度に応じた色で強調）
         lines.push(Line::from(vec![
+            Span::raw("  "),
             Span::styled(
-                format!("  {}  ", s.temp),
-                Style::default().fg(theme::SUBTLE),
-            ),
-            Span::styled(
-                format!("{:>5.1} ℃", cw.temperature_c),
+                format!("{:.1}", cw.temperature_c),
                 Style::default()
-                    .fg(theme::TEMP)
+                    .fg(theme::temp_color(cw.temperature_c))
                     .add_modifier(Modifier::BOLD),
             ),
+            Span::styled(
+                " ℃",
+                Style::default().fg(theme::temp_color(cw.temperature_c)),
+            ),
         ]));
+        lines.push(Line::from(""));
+        // 湿度・風は 1 行にまとめてコンパクトに
+        let mut detail: Vec<Span> = vec![Span::raw("  ")];
         if let Some(h) = cw.humidity_pct {
-            lines.push(Line::from(vec![
-                Span::styled(
-                    format!("  {}  ", s.humidity),
-                    Style::default().fg(theme::SUBTLE),
-                ),
-                Span::styled(format!("{:>5.0} %", h), Style::default().fg(theme::RAIN)),
-            ]));
+            detail.push(Span::raw("💧"));
+            detail.push(Span::styled(
+                format!(" {:.0}%", h),
+                Style::default().fg(theme::RAIN),
+            ));
+            detail.push(Span::raw("   "));
         }
         if let Some(w) = cw.wind_speed_ms {
-            lines.push(Line::from(vec![
-                Span::styled(
-                    format!("  {}  ", s.wind),
-                    Style::default().fg(theme::SUBTLE),
-                ),
-                Span::styled(format!("{:>5.1} m/s", w), Style::default().fg(theme::FG)),
-            ]));
+            detail.push(Span::raw("🍃"));
+            detail.push(Span::styled(
+                format!(" {:.1}m/s", w),
+                Style::default().fg(theme::FG),
+            ));
+        }
+        if detail.len() > 1 {
+            lines.push(Line::from(detail));
         }
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled(
