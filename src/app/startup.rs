@@ -159,3 +159,116 @@ fn apply_latlon_override(config: &mut Config, lat: f64, lon: f64, city_was_given
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    // 親モジュール (startup.rs) の private な関数 apply_latlon_override を
+    // テストするため、`use super::*;` で取り込む。
+    use super::*;
+
+    // 各テストで使う初期 Config。
+    // Default は東京 (name="Tokyo", country="JP") なので、上書きの挙動を
+    // 観察する出発点としてちょうどいい。
+    fn base_config() -> Config {
+        Config::default()
+    }
+
+    #[test]
+    fn sets_lat_lon_always() {
+        // city_was_given の真偽にかかわらず、座標は必ず差し替わる。
+        let mut cfg = base_config();
+        apply_latlon_override(&mut cfg, 10.0, 20.0, false);
+        assert_eq!(cfg.location.latitude, 10.0);
+        assert_eq!(cfg.location.longitude, 20.0);
+
+        let mut cfg2 = base_config();
+        apply_latlon_override(&mut cfg2, -10.0, -20.0, true);
+        assert_eq!(cfg2.location.latitude, -10.0);
+        assert_eq!(cfg2.location.longitude, -20.0);
+    }
+
+    #[test]
+    fn inside_japan_box_sets_jp() {
+        // 東京駅 (35.68, 139.77) は日本判定の中央。
+        let mut cfg = base_config();
+        apply_latlon_override(&mut cfg, 35.68, 139.77, false);
+        assert_eq!(cfg.location.country, "JP");
+        assert_eq!(cfg.location.name, "Custom");
+    }
+
+    #[test]
+    fn outside_japan_box_clears_country() {
+        // ニューヨーク (40.7, -74.0) は範囲外。
+        let mut cfg = base_config();
+        apply_latlon_override(&mut cfg, 40.7, -74.0, false);
+        assert_eq!(cfg.location.country, "");
+        assert_eq!(cfg.location.name, "Custom");
+    }
+
+    #[test]
+    fn city_was_given_preserves_name_and_country() {
+        // --city で都市検索が走っていたケース。
+        // 緯度経度だけ上書きし、name と country はそのまま残す。
+        let mut cfg = base_config();
+        cfg.location.name = "Osaka".into();
+        cfg.location.country = "JP".into();
+
+        // あえて日本外の座標を渡しても country は書き換えない
+        apply_latlon_override(&mut cfg, 40.7, -74.0, true);
+
+        assert_eq!(cfg.location.name, "Osaka");
+        assert_eq!(cfg.location.country, "JP");
+        assert_eq!(cfg.location.latitude, 40.7);
+        assert_eq!(cfg.location.longitude, -74.0);
+    }
+
+    // --- 日本判定の境界値テスト ---
+    // 判定式は `lat > 24.0 && lat < 46.0 && lon > 122.0 && lon < 146.0` の
+    // すべて strict 不等号なので、境界「ちょうど」は範囲外。
+
+    #[test]
+    fn boundary_lat_24_exact_is_outside() {
+        // lat == 24.0 は strict > なので外
+        let mut cfg = base_config();
+        apply_latlon_override(&mut cfg, 24.0, 130.0, false);
+        assert_eq!(cfg.location.country, "");
+    }
+
+    #[test]
+    fn boundary_lat_24_just_inside_is_jp() {
+        let mut cfg = base_config();
+        apply_latlon_override(&mut cfg, 24.0001, 130.0, false);
+        assert_eq!(cfg.location.country, "JP");
+    }
+
+    #[test]
+    fn boundary_lat_46_exact_is_outside() {
+        let mut cfg = base_config();
+        apply_latlon_override(&mut cfg, 46.0, 130.0, false);
+        assert_eq!(cfg.location.country, "");
+    }
+
+    #[test]
+    fn boundary_lon_122_exact_is_outside() {
+        let mut cfg = base_config();
+        apply_latlon_override(&mut cfg, 35.0, 122.0, false);
+        assert_eq!(cfg.location.country, "");
+    }
+
+    #[test]
+    fn boundary_lon_146_exact_is_outside() {
+        let mut cfg = base_config();
+        apply_latlon_override(&mut cfg, 35.0, 146.0, false);
+        assert_eq!(cfg.location.country, "");
+    }
+
+    #[test]
+    fn previous_country_is_overwritten_when_no_city() {
+        // 元が "JP" でも、範囲外の座標 + city_was_given=false なら "" に潰される。
+        let mut cfg = base_config();
+        cfg.location.country = "JP".into();
+        apply_latlon_override(&mut cfg, 0.0, 0.0, false);
+        assert_eq!(cfg.location.country, "");
+        assert_eq!(cfg.location.name, "Custom");
+    }
+}
