@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-06-24
+
+### Changed
+- Internal refactor: split the monolithic `src/app.rs` into focused
+  submodules under `src/app/` (`state`, `fetch`, `input`, `startup`,
+  `mod`). No user-facing behavior change.
+
 ## [0.3.1] - 2026-06-11
 
 ### Added
