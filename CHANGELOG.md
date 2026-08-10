@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-08-11
+
+### Fixed
+- Prevent stale asynchronous radar responses from overwriting the latest
+  location, zoom, time-scrub, map-style, refresh, or animation result.
+- Fetch JMA text-mode fallback map tiles using the same zoom as their tile
+  coordinates.
+- Restore terminal raw mode and the alternate screen when TUI setup or drawing
+  exits with an error.
+
 ## [0.3.2] - 2026-06-24
 
 ### Changed
@@ -118,5 +128,12 @@ Initial public release.
 - Bilingual README (`README.md` / `README.ja.md`), MIT LICENSE, and a
   main-screen screenshot in `docs/screenshots/main.png`.
 
-[Unreleased]: https://github.com/iorinu/termrain/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/iorinu/termrain/compare/v0.3.3...HEAD
+[0.3.3]: https://github.com/iorinu/termrain/compare/v0.3.2...v0.3.3
+[0.3.2]: https://github.com/iorinu/termrain/compare/v0.3.1...v0.3.2
+[0.3.1]: https://github.com/iorinu/termrain/compare/v0.3.0...v0.3.1
+[0.3.0]: https://github.com/iorinu/termrain/compare/v0.2.2...v0.3.0
+[0.2.2]: https://github.com/iorinu/termrain/compare/v0.2.1...v0.2.2
+[0.2.1]: https://github.com/iorinu/termrain/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/iorinu/termrain/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/iorinu/termrain/releases/tag/v0.1.0
