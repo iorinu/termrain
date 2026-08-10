@@ -36,6 +36,8 @@ pub struct AppState {
     /// 雨雲レーダーの取得中フラグ。spawn_radar で true、Msg::Radar 受信で false。
     /// 時刻スクラブやズーム中に「いま処理中」を UI で示すために使う。
     pub radar_loading: bool,
+    /// 直近に開始したレーダー取得の世代番号。古い非同期結果を破棄するために使う。
+    pub radar_request_id: u64,
     /// 合成画像に要求するアスペクト比（横/縦）。端末サイズから計算し、
     /// ワイドターミナルではレーダーを横長にしてパネルを使い切る。
     pub radar_aspect: f64,
@@ -57,6 +59,12 @@ impl AppState {
             || self.hourly.is_empty()
             || self.daily.is_empty()
     }
+
+    /// 新しいレーダー取得を識別する世代番号を発行する。
+    pub fn next_radar_request_id(&mut self) -> u64 {
+        self.radar_request_id = self.radar_request_id.wrapping_add(1);
+        self.radar_request_id
+    }
 }
 
 // 取得結果をメインに伝えるためのメッセージ
@@ -64,7 +72,10 @@ pub enum Msg {
     Current(CurrentWeather),
     Hourly(Vec<HourlyPoint>),
     Daily(Vec<DailyPoint>),
-    Radar(RadarGrid),
+    Radar {
+        request_id: u64,
+        grid: RadarGrid,
+    },
     Map(Arc<MapData>),
     Error(String),
     /// Splash 演出を解除する（タイマー or 主要データ取得完了で送られる）

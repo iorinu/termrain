@@ -726,7 +726,10 @@ impl WeatherProvider for Jma {
                     let mtx = mtx as u32;
                     let mty = mty as u32;
                     map_dot_fetches.push(async move {
-                        let g = self.fetch_map_tile(rain_z, mtx, mty).await.ok();
+                        let g = self
+                            .fetch_map_tile(map_dot_tile_zoom(map_z, rain_z), mtx, mty)
+                            .await
+                            .ok();
                         ((dx, dy), g)
                     });
                     map_img_fetches.push(async move {
@@ -1343,4 +1346,20 @@ fn parse_jma_compact(s: &str) -> Result<DateTime<Local>> {
     let ndt =
         chrono::NaiveDateTime::parse_from_str(s, "%Y%m%d%H%M%S").context("validtime parse")?;
     Ok(chrono::Utc.from_utc_datetime(&ndt).with_timezone(&Local))
+}
+
+/// 背景地図ドットは `map_z` で計算したタイル座標を使うため、同じズームで取得する。
+fn map_dot_tile_zoom(map_z: u8, _rain_z: u8) -> u8 {
+    map_z
+}
+
+#[cfg(test)]
+mod tests {
+    use super::map_dot_tile_zoom;
+
+    #[test]
+    fn map_dot_tiles_use_the_map_coordinate_zoom() {
+        assert_eq!(map_dot_tile_zoom(13, 10), 13);
+        assert_eq!(map_dot_tile_zoom(8, 8), 8);
+    }
 }

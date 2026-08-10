@@ -21,6 +21,7 @@ use std::io::{Stdout, stdout};
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
+use crossterm::cursor::Show;
 use crossterm::event::EventStream;
 use crossterm::execute;
 use crossterm::terminal::{
@@ -95,20 +96,25 @@ pub async fn run(args: Args) -> Result<()> {
         show_help: false,
         spinner_frame: 0,
         radar_loading: false,
+        radar_request_id: 0,
         radar_aspect,
         last_error: None,
         quit: false,
     };
 
     let mut terminal = setup_terminal().context("ターミナル初期化失敗")?;
+    // 途中の描画エラーでも raw mode / alternate screen を可能な限り復旧する。
+    let mut terminal_cleanup = TerminalCleanup::new();
 
     // メッセージチャンネル
     let (tx, mut rx) = mpsc::unbounded_channel::<Msg>();
 
     // 初回フェッチを spawn（天気 + 地図データ）
+    let request_id = state.next_radar_request_id();
     spawn_fetch(
         provider.clone(),
         state.config.clone(),
+        request_id,
         state.radar_time_offset,
         state.radar_aspect,
         tx.clone(),
@@ -168,7 +174,8 @@ pub async fn run(args: Args) -> Result<()> {
                     sleep(Duration::from_secs(60 * 60 * 24)).await;
                 }
             } => {
-                spawn_fetch(provider.clone(), state.config.clone(), state.radar_time_offset, state.radar_aspect, tx.clone());
+                let request_id = state.next_radar_request_id();
+                spawn_fetch(provider.clone(), state.config.clone(), request_id, state.radar_time_offset, state.radar_aspect, tx.clone());
             }
             // 雨雲アニメーション (playing 中のみ反映)
             _ = anim_tick.tick() => {
@@ -179,7 +186,8 @@ pub async fn run(args: Args) -> Result<()> {
                         state.radar_time_offset = off_min;
                     }
                     state.radar_loading = true;
-                    spawn_radar(provider.clone(), state.config.clone(), state.radar_time_offset, state.radar_aspect, tx.clone());
+                    let request_id = state.next_radar_request_id();
+                    spawn_radar(provider.clone(), state.config.clone(), request_id, state.radar_time_offset, state.radar_aspect, tx.clone());
                 }
             }
             // スピナー進行: 何かしらロード中 or splash 中なら再描画
@@ -193,18 +201,56 @@ pub async fn run(args: Args) -> Result<()> {
     }
 
     restore_terminal(&mut terminal)?;
+    terminal_cleanup.disarm();
     Ok(())
 }
 
 // === ターミナル制御 ===
 
+/// `run` がエラーで早期 return しても端末を操作可能な状態に戻すためのガード。
+struct TerminalCleanup {
+    armed: bool,
+}
+
+impl TerminalCleanup {
+    fn new() -> Self {
+        Self { armed: true }
+    }
+
+    fn disarm(&mut self) {
+        self.armed = false;
+    }
+}
+
+impl Drop for TerminalCleanup {
+    fn drop(&mut self) {
+        if !self.armed {
+            return;
+        }
+        // エラー処理中なので、復旧処理の失敗は元のエラーを隠さないよう握りつぶす。
+        let _ = disable_raw_mode();
+        let mut out = stdout();
+        let _ = execute!(out, LeaveAlternateScreen, Show);
+    }
+}
+
 fn setup_terminal() -> Result<Terminal<CrosstermBackend<Stdout>>> {
     enable_raw_mode()?;
     let mut out = stdout();
-    execute!(out, EnterAlternateScreen)?;
+    if let Err(error) = execute!(out, EnterAlternateScreen) {
+        let _ = disable_raw_mode();
+        return Err(error.into());
+    }
     let backend = CrosstermBackend::new(out);
-    let terminal = Terminal::new(backend)?;
-    Ok(terminal)
+    match Terminal::new(backend) {
+        Ok(terminal) => Ok(terminal),
+        Err(error) => {
+            let _ = disable_raw_mode();
+            let mut out = stdout();
+            let _ = execute!(out, LeaveAlternateScreen, Show);
+            Err(error.into())
+        }
+    }
 }
 
 fn restore_terminal(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
