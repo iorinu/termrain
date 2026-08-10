@@ -25,13 +25,7 @@ pub fn handle_event(
         if (desired - state.radar_aspect).abs() > 0.15 && !state.radar_loading {
             state.radar_aspect = desired;
             state.radar_loading = true;
-            spawn_radar(
-                provider.clone(),
-                state.config.clone(),
-                state.radar_time_offset,
-                state.radar_aspect,
-                tx.clone(),
-            );
+            request_radar(state, provider.clone(), tx.clone());
         }
         return true;
     }
@@ -61,36 +55,18 @@ pub fn handle_event(
         KeyCode::Char('r') => {
             state.last_error = None;
             state.radar_loading = true;
-            spawn_fetch(
-                provider.clone(),
-                state.config.clone(),
-                state.radar_time_offset,
-                state.radar_aspect,
-                tx.clone(),
-            );
+            request_fetch(state, provider.clone(), tx.clone());
         }
         KeyCode::Char('+') | KeyCode::Char('=') => {
             // 13 まで上げる。z=11-13 は JMA タイル z=10 を内部でクロップして拡大表示。
             state.config.radar.zoom = (state.config.radar.zoom + 1).min(13);
             state.radar_loading = true;
-            spawn_radar(
-                provider.clone(),
-                state.config.clone(),
-                state.radar_time_offset,
-                state.radar_aspect,
-                tx.clone(),
-            );
+            request_radar(state, provider.clone(), tx.clone());
         }
         KeyCode::Char('-') | KeyCode::Char('_') => {
             state.config.radar.zoom = state.config.radar.zoom.saturating_sub(1).max(6);
             state.radar_loading = true;
-            spawn_radar(
-                provider.clone(),
-                state.config.clone(),
-                state.radar_time_offset,
-                state.radar_aspect,
-                tx.clone(),
-            );
+            request_radar(state, provider.clone(), tx.clone());
         }
         // 移動量は 0.02 度（約 2km）。タイルキャッシュが効くので連打しても軽い。
         KeyCode::Char('h') => shift_location(state, -0.02, 0.0, provider.clone(), tx.clone()),
@@ -102,25 +78,13 @@ pub fn handle_event(
             let (off_min, _) = provider.radar_offset_range();
             state.radar_time_offset = (state.radar_time_offset - 1).max(off_min);
             state.radar_loading = true;
-            spawn_radar(
-                provider.clone(),
-                state.config.clone(),
-                state.radar_time_offset,
-                state.radar_aspect,
-                tx.clone(),
-            );
+            request_radar(state, provider.clone(), tx.clone());
         }
         KeyCode::Char('.') | KeyCode::Char('>') => {
             let (_, off_max) = provider.radar_offset_range();
             state.radar_time_offset = (state.radar_time_offset + 1).min(off_max);
             state.radar_loading = true;
-            spawn_radar(
-                provider.clone(),
-                state.config.clone(),
-                state.radar_time_offset,
-                state.radar_aspect,
-                tx.clone(),
-            );
+            request_radar(state, provider.clone(), tx.clone());
         }
         // アニメーション再生 toggle。tokio interval で進行は外側で。
         KeyCode::Char('p') => {
@@ -131,13 +95,7 @@ pub fn handle_event(
             state.config.radar.map_style = state.config.radar.map_style.next();
             provider.set_map_style(state.config.radar.map_style);
             state.radar_loading = true;
-            spawn_radar(
-                provider.clone(),
-                state.config.clone(),
-                state.radar_time_offset,
-                state.radar_aspect,
-                tx.clone(),
-            );
+            request_radar(state, provider.clone(), tx.clone());
         }
         _ => return false,
     }
@@ -154,9 +112,35 @@ fn shift_location(
     state.config.location.longitude += dlon;
     state.config.location.latitude += dlat;
     state.radar_loading = true;
+    request_radar(state, provider, tx);
+}
+
+fn request_fetch(
+    state: &mut AppState,
+    provider: Arc<dyn WeatherProvider>,
+    tx: mpsc::UnboundedSender<Msg>,
+) {
+    let request_id = state.next_radar_request_id();
+    spawn_fetch(
+        provider,
+        state.config.clone(),
+        request_id,
+        state.radar_time_offset,
+        state.radar_aspect,
+        tx,
+    );
+}
+
+fn request_radar(
+    state: &mut AppState,
+    provider: Arc<dyn WeatherProvider>,
+    tx: mpsc::UnboundedSender<Msg>,
+) {
+    let request_id = state.next_radar_request_id();
     spawn_radar(
         provider,
         state.config.clone(),
+        request_id,
         state.radar_time_offset,
         state.radar_aspect,
         tx,

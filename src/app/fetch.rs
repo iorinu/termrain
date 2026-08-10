@@ -19,7 +19,10 @@ pub fn apply_msg(state: &mut AppState, msg: Msg) {
         Msg::Current(c) => state.current = Some(c),
         Msg::Hourly(h) => state.hourly = h,
         Msg::Daily(d) => state.daily = d,
-        Msg::Radar(r) => {
+        Msg::Radar {
+            request_id,
+            grid: r,
+        } if should_apply_radar(request_id, state.radar_request_id) => {
             // 合成画像があれば StatefulProtocol 化（描画時にパネル領域に動的フィット）
             if let (Some(picker), Some(img)) =
                 (state.image_picker.as_mut(), r.composite_image.as_ref())
@@ -30,10 +33,16 @@ pub fn apply_msg(state: &mut AppState, msg: Msg) {
             state.radar = Some(r);
             state.radar_loading = false;
         }
+        Msg::Radar { .. } => {}
         Msg::Map(m) => state.map = m,
         Msg::Error(e) => state.last_error = Some(e),
         Msg::DismissSplash => state.splash_active = false,
     }
+}
+
+/// 古い非同期取得が、新しい表示状態を上書きしないようにする。
+fn should_apply_radar(request_id: u64, latest_request_id: u64) -> bool {
+    request_id == latest_request_id
 }
 
 /// 地図データ（海岸線）を非同期にロードする。
@@ -65,6 +74,7 @@ pub fn spawn_map_load(tx: mpsc::UnboundedSender<Msg>) {
 pub fn spawn_fetch(
     provider: Arc<dyn WeatherProvider>,
     cfg: Config,
+    radar_request_id: u64,
     time_offset: i32,
     aspect: f64,
     tx: mpsc::UnboundedSender<Msg>,
@@ -122,7 +132,10 @@ pub fn spawn_fetch(
         tokio::spawn(async move {
             match p.radar(lat, lon, zoom, time_offset, aspect).await {
                 Ok(r) => {
-                    let _ = tx.send(Msg::Radar(r));
+                    let _ = tx.send(Msg::Radar {
+                        request_id: radar_request_id,
+                        grid: r,
+                    });
                 }
                 Err(e) => {
                     let _ = tx.send(Msg::Error(format!("radar: {e:#}")));
@@ -135,6 +148,7 @@ pub fn spawn_fetch(
 pub fn spawn_radar(
     provider: Arc<dyn WeatherProvider>,
     cfg: Config,
+    radar_request_id: u64,
     time_offset: i32,
     aspect: f64,
     tx: mpsc::UnboundedSender<Msg>,
@@ -145,11 +159,26 @@ pub fn spawn_radar(
     tokio::spawn(async move {
         match provider.radar(lat, lon, zoom, time_offset, aspect).await {
             Ok(r) => {
-                let _ = tx.send(Msg::Radar(r));
+                let _ = tx.send(Msg::Radar {
+                    request_id: radar_request_id,
+                    grid: r,
+                });
             }
             Err(e) => {
                 let _ = tx.send(Msg::Error(format!("radar: {e:#}")));
             }
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::should_apply_radar;
+
+    #[test]
+    fn accepts_only_the_latest_radar_request() {
+        assert!(should_apply_radar(7, 7));
+        assert!(!should_apply_radar(6, 7));
+        assert!(!should_apply_radar(8, 7));
+    }
 }
