@@ -273,10 +273,9 @@ pub fn draw(f: &mut Frame, area: Rect, state: &mut AppState) {
             // 雨雲の下に置くため最初に描く。
             if !map_dots.is_empty() {
                 let mut pts: Vec<(f64, f64)> = Vec::new();
-                for j in 0..map_dots.len() {
-                    let row = &map_dots[j];
-                    for i in 0..row.len() {
-                        if row[i] {
+                for (j, row) in map_dots.iter().enumerate() {
+                    for (i, dot) in row.iter().enumerate() {
+                        if *dot {
                             let y = (map_dots.len() - 1 - j) as f64 + 0.5;
                             let x = i as f64 + 0.5;
                             pts.push((x, y));
@@ -332,10 +331,9 @@ pub fn draw(f: &mut Frame, area: Rect, state: &mut AppState) {
                     continue;
                 };
                 let mut pts: Vec<(f64, f64)> = Vec::new();
-                for j in 0..data.len() {
-                    let row = &data[j];
-                    for i in 0..row.len() {
-                        let v = row[i];
+                for (j, row) in data.iter().enumerate() {
+                    for (i, v) in row.iter().enumerate() {
+                        let v = *v;
                         if v >= *lo && v < *hi {
                             // grid の j=0 は北端（lat 大）。キャンバスは y 大が上なので反転不要
                             // ……ではなく、grid 内部の y は「上から下」のインデックス順なので、

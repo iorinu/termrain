@@ -59,22 +59,23 @@ pub fn draw(f: &mut Frame, area: Rect, state: &AppState) {
 
         // 日付が変わったら区切り線を入れる（先頭行は今日なので省略）
         let day = p.time.day();
-        if let Some(prev) = prev_day {
-            if prev != day && lines.len() + 1 < capacity {
-                let label = p.time.format(" %m/%d (%a) ").to_string();
-                let pad = (COL_W as usize)
-                    .saturating_sub(unicode_width::UnicodeWidthStr::width(label.as_str()) + 2)
-                    / 2;
-                lines.push(Line::from(Span::styled(
-                    format!(
-                        "{}{}{}",
-                        "─".repeat(pad.max(2)),
-                        label,
-                        "─".repeat(pad.max(2))
-                    ),
-                    Style::default().fg(theme::BORDER),
-                )));
-            }
+        if let Some(prev) = prev_day
+            && prev != day
+            && lines.len() + 1 < capacity
+        {
+            let label = p.time.format(" %m/%d (%a) ").to_string();
+            let pad = (COL_W as usize)
+                .saturating_sub(unicode_width::UnicodeWidthStr::width(label.as_str()) + 2)
+                / 2;
+            lines.push(Line::from(Span::styled(
+                format!(
+                    "{}{}{}",
+                    "─".repeat(pad.max(2)),
+                    label,
+                    "─".repeat(pad.max(2))
+                ),
+                Style::default().fg(theme::BORDER),
+            )));
         }
         prev_day = Some(day);
         if lines.len() >= capacity {

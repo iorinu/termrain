@@ -161,7 +161,7 @@ fn wmo_to_text(code: u32, lang: crate::i18n::Language) -> &'static str {
             66 | 67 => "凍雨",
             71 | 73 | 75 => "雪",
             77 => "霧雪",
-            80 | 81 | 82 => "にわか雨",
+            80..=82 => "にわか雨",
             85 | 86 => "にわか雪",
             95 => "雷雨",
             96 | 99 => "雷雨（雹あり）",
@@ -178,7 +178,7 @@ fn wmo_to_text(code: u32, lang: crate::i18n::Language) -> &'static str {
             66 | 67 => "Freezing rain",
             71 | 73 | 75 => "Snow",
             77 => "Snow grains",
-            80 | 81 | 82 => "Showers",
+            80..=82 => "Showers",
             85 | 86 => "Snow showers",
             95 => "Thunderstorm",
             96 | 99 => "Thunderstorm w/ hail",
@@ -585,35 +585,37 @@ fn build_composite_image_rv(
             let (_, mtx, mty) = lonlat_to_tile(v_lon, v_lat, map_z);
             let mdx = mtx as i32 - map_cx as i32;
             let mdy = mty as i32 - map_cy as i32;
-            if (-2..=2).contains(&mdx) && (-1..=1).contains(&mdy) {
-                if let Some(map) = map_imgs.get(&(mdx, mdy)) {
-                    let (lat_n_t, lon_w_t) = tile_to_lonlat(map_z, mtx, mty);
-                    let (lat_s_t, lon_e_t) = tile_to_lonlat(map_z, mtx + 1, mty + 1);
-                    let fx = (v_lon - lon_w_t) / (lon_e_t - lon_w_t);
-                    let fy = (lat_n_t - v_lat) / (lat_n_t - lat_s_t);
-                    base = sample_bilinear(map, fx, fy);
-                }
+            if (-2..=2).contains(&mdx)
+                && (-1..=1).contains(&mdy)
+                && let Some(map) = map_imgs.get(&(mdx, mdy))
+            {
+                let (lat_n_t, lon_w_t) = tile_to_lonlat(map_z, mtx, mty);
+                let (lat_s_t, lon_e_t) = tile_to_lonlat(map_z, mtx + 1, mty + 1);
+                let fx = (v_lon - lon_w_t) / (lon_e_t - lon_w_t);
+                let fy = (lat_n_t - v_lat) / (lat_n_t - lat_s_t);
+                base = sample_bilinear(map, fx, fy);
             }
             // 雨雲サンプル（RainViewer は事前色付け済み RGBA タイル）
             let (_, rtx, rty) = lonlat_to_tile(v_lon, v_lat, radar_z);
             let rdx = rtx as i32 - radar_cx as i32;
             let rdy = rty as i32 - radar_cy as i32;
-            if (-2..=2).contains(&rdx) && (-1..=1).contains(&rdy) {
-                if let Some(radar) = radar_imgs.get(&(rdx, rdy)) {
-                    let (lat_n_t, lon_w_t) = tile_to_lonlat(radar_z, rtx, rty);
-                    let (lat_s_t, lon_e_t) = tile_to_lonlat(radar_z, rtx + 1, rty + 1);
-                    let fx = (v_lon - lon_w_t) / (lon_e_t - lon_w_t);
-                    let fy = (lat_n_t - v_lat) / (lat_n_t - lat_s_t);
-                    let pix = sample_bilinear(radar, fx, fy);
-                    // RainViewer のタイルはフル不透明の領域が多く、そのまま重ねると
-                    // 地図を完全に覆ってしまう。0.55 倍してから合成し、雨雲が
-                    // 地図の上に半透明で乗っているように見せる。
-                    let a = (pix.0[3] as f64 / 255.0) * 0.55;
-                    if a > 0.0 {
-                        base.0[0] = blend(base.0[0], pix.0[0], a);
-                        base.0[1] = blend(base.0[1], pix.0[1], a);
-                        base.0[2] = blend(base.0[2], pix.0[2], a);
-                    }
+            if (-2..=2).contains(&rdx)
+                && (-1..=1).contains(&rdy)
+                && let Some(radar) = radar_imgs.get(&(rdx, rdy))
+            {
+                let (lat_n_t, lon_w_t) = tile_to_lonlat(radar_z, rtx, rty);
+                let (lat_s_t, lon_e_t) = tile_to_lonlat(radar_z, rtx + 1, rty + 1);
+                let fx = (v_lon - lon_w_t) / (lon_e_t - lon_w_t);
+                let fy = (lat_n_t - v_lat) / (lat_n_t - lat_s_t);
+                let pix = sample_bilinear(radar, fx, fy);
+                // RainViewer のタイルはフル不透明の領域が多く、そのまま重ねると
+                // 地図を完全に覆ってしまう。0.55 倍してから合成し、雨雲が
+                // 地図の上に半透明で乗っているように見せる。
+                let a = (pix.0[3] as f64 / 255.0) * 0.55;
+                if a > 0.0 {
+                    base.0[0] = blend(base.0[0], pix.0[0], a);
+                    base.0[1] = blend(base.0[1], pix.0[1], a);
+                    base.0[2] = blend(base.0[2], pix.0[2], a);
                 }
             }
             canvas.put_pixel(i, j, base);

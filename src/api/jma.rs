@@ -576,11 +576,11 @@ impl WeatherProvider for Jma {
             .unwrap_or_default();
 
         let mut out = Vec::new();
-        for i in 0..dates.len() {
+        for (i, date) in dates.iter().enumerate() {
             let code = weather_codes.get(i).cloned().unwrap_or_default();
             let condition = jma_weather_code_text(&code);
             out.push(DailyPoint {
-                date: dates[i],
+                date: *date,
                 condition: condition.to_string(),
                 icon: text_to_icon(condition),
                 temp_max_c: tmax.get(i).copied().flatten(),
@@ -594,19 +594,18 @@ impl WeatherProvider for Jma {
         if out
             .iter()
             .any(|d| d.temp_max_c.is_none() || d.temp_min_c.is_none())
+            && let Ok(om) = self.om().daily(lat, lon).await
         {
-            if let Ok(om) = self.om().daily(lat, lon).await {
-                for d in out.iter_mut() {
-                    if let Some(o) = om.iter().find(|o| o.date == d.date) {
-                        if d.temp_max_c.is_none() {
-                            d.temp_max_c = o.temp_max_c;
-                        }
-                        if d.temp_min_c.is_none() {
-                            d.temp_min_c = o.temp_min_c;
-                        }
-                        if d.precipitation_prob_pct.is_none() {
-                            d.precipitation_prob_pct = o.precipitation_prob_pct;
-                        }
+            for d in out.iter_mut() {
+                if let Some(o) = om.iter().find(|o| o.date == d.date) {
+                    if d.temp_max_c.is_none() {
+                        d.temp_max_c = o.temp_max_c;
+                    }
+                    if d.temp_min_c.is_none() {
+                        d.temp_min_c = o.temp_min_c;
+                    }
+                    if d.precipitation_prob_pct.is_none() {
+                        d.precipitation_prob_pct = o.precipitation_prob_pct;
                     }
                 }
             }
@@ -873,6 +872,7 @@ impl WeatherProvider for Jma {
 /// 5x3 タイルを地理座標系のキャンバスに貼り合わせ、
 /// ユーザー位置を中心にした view 範囲をクロップ。
 /// 雨雲は地図の上に alpha blend で重ねる。
+#[allow(clippy::too_many_arguments)]
 fn build_composite_image(
     aspect: f64,
     map_z: u8,
@@ -916,32 +916,34 @@ fn build_composite_image(
             let (_, mtx, mty) = lonlat_to_tile(v_lon, v_lat, map_z);
             let mdx = mtx as i32 - map_cx as i32;
             let mdy = mty as i32 - map_cy as i32;
-            if (-2..=2).contains(&mdx) && (-1..=1).contains(&mdy) {
-                if let Some(map) = map_imgs.get(&(mdx, mdy)) {
-                    let (lat_n_t, lon_w_t) = tile_to_lonlat(map_z, mtx, mty);
-                    let (lat_s_t, lon_e_t) = tile_to_lonlat(map_z, mtx + 1, mty + 1);
-                    let fx = (v_lon - lon_w_t) / (lon_e_t - lon_w_t);
-                    let fy = (lat_n_t - v_lat) / (lat_n_t - lat_s_t);
-                    base = sample_bilinear(map, fx, fy);
-                }
+            if (-2..=2).contains(&mdx)
+                && (-1..=1).contains(&mdy)
+                && let Some(map) = map_imgs.get(&(mdx, mdy))
+            {
+                let (lat_n_t, lon_w_t) = tile_to_lonlat(map_z, mtx, mty);
+                let (lat_s_t, lon_e_t) = tile_to_lonlat(map_z, mtx + 1, mty + 1);
+                let fx = (v_lon - lon_w_t) / (lon_e_t - lon_w_t);
+                let fy = (lat_n_t - v_lat) / (lat_n_t - lat_s_t);
+                base = sample_bilinear(map, fx, fy);
             }
             // ---- 雨雲サンプル (rain_z タイル空間) ----
             let (_, rtx, rty) = lonlat_to_tile(v_lon, v_lat, rain_z);
             let rdx = rtx as i32 - rain_cx as i32;
             let rdy = rty as i32 - rain_cy as i32;
-            if (-2..=2).contains(&rdx) && (-1..=1).contains(&rdy) {
-                if let Some(rain) = rain_imgs.get(&(rdx, rdy)) {
-                    let (lat_n_t, lon_w_t) = tile_to_lonlat(rain_z, rtx, rty);
-                    let (lat_s_t, lon_e_t) = tile_to_lonlat(rain_z, rtx + 1, rty + 1);
-                    let fx = (v_lon - lon_w_t) / (lon_e_t - lon_w_t);
-                    let fy = (lat_n_t - v_lat) / (lat_n_t - lat_s_t);
-                    let mmh = sample_rain_max(rain, fx, fy);
-                    if let Some((rc, gc, bc, ac)) = rain_to_yahoo(mmh) {
-                        let a = ac as f64 / 255.0;
-                        base.0[0] = blend(base.0[0], rc, a);
-                        base.0[1] = blend(base.0[1], gc, a);
-                        base.0[2] = blend(base.0[2], bc, a);
-                    }
+            if (-2..=2).contains(&rdx)
+                && (-1..=1).contains(&rdy)
+                && let Some(rain) = rain_imgs.get(&(rdx, rdy))
+            {
+                let (lat_n_t, lon_w_t) = tile_to_lonlat(rain_z, rtx, rty);
+                let (lat_s_t, lon_e_t) = tile_to_lonlat(rain_z, rtx + 1, rty + 1);
+                let fx = (v_lon - lon_w_t) / (lon_e_t - lon_w_t);
+                let fy = (lat_n_t - v_lat) / (lat_n_t - lat_s_t);
+                let mmh = sample_rain_max(rain, fx, fy);
+                if let Some((rc, gc, bc, ac)) = rain_to_yahoo(mmh) {
+                    let a = ac as f64 / 255.0;
+                    base.0[0] = blend(base.0[0], rc, a);
+                    base.0[1] = blend(base.0[1], gc, a);
+                    base.0[2] = blend(base.0[2], bc, a);
                 }
             }
             canvas.put_pixel(i, j, base);
@@ -1113,11 +1115,10 @@ fn sample_rain_max(img: &image::RgbaImage, fx: f64, fy: f64) -> f64 {
         let p = img.get_pixel(px, py).0;
         nowcast_color_to_mmh(p[0], p[1], p[2], p[3])
     };
-    let v = m(x0, y0) * (1.0 - dx) * (1.0 - dy)
+    m(x0, y0) * (1.0 - dx) * (1.0 - dy)
         + m(x1, y0) * dx * (1.0 - dy)
         + m(x0, y1) * (1.0 - dx) * dy
-        + m(x1, y1) * dx * dy;
-    v
+        + m(x1, y1) * dx * dy
 }
 
 /// 画像中心に "+" 形状の十字を描き込む
@@ -1150,8 +1151,8 @@ fn binarize_map_tile(img: &image::RgbaImage) -> MapDotGrid {
     // しきい値: 255 が真っ白、淡色タイルの薄いグレー線は 200 前後なので 220 で拾える
     let threshold: u32 = 220;
     let sample = 2usize;
-    for j in 0..TILE_H {
-        for i in 0..TILE_W {
+    for (j, row) in dots.iter_mut().enumerate() {
+        for (i, cell) in row.iter_mut().enumerate() {
             let mut hit = false;
             for dy in 0..sample {
                 for dx in 0..sample {
@@ -1170,7 +1171,7 @@ fn binarize_map_tile(img: &image::RgbaImage) -> MapDotGrid {
                     break;
                 }
             }
-            dots[j][i] = hit;
+            *cell = hit;
         }
     }
     dots
@@ -1181,8 +1182,8 @@ fn downsample_tile(img: &image::RgbaImage) -> TileGrid {
     let (iw, ih) = (img.width() as usize, img.height() as usize);
     let mut data = vec![vec![0.0f64; TILE_W]; TILE_H];
     let sample = 2usize;
-    for j in 0..TILE_H {
-        for i in 0..TILE_W {
+    for (j, row) in data.iter_mut().enumerate() {
+        for (i, cell) in row.iter_mut().enumerate() {
             let mut mx = 0.0f64;
             for dy in 0..sample {
                 for dx in 0..sample {
@@ -1195,7 +1196,7 @@ fn downsample_tile(img: &image::RgbaImage) -> TileGrid {
                     }
                 }
             }
-            data[j][i] = mx;
+            *cell = mx;
         }
     }
     data

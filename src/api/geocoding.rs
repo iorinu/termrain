@@ -63,7 +63,7 @@ pub async fn search_many(
     let url = format!(
         "https://geocoding-api.open-meteo.com/v1/search?name={}&count={}&language={}",
         urlencoding::encode(query),
-        count.max(1).min(20),
+        count.clamp(1, 20),
         lang.api_code(),
     );
     let r: Resp = client

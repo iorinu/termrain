@@ -28,32 +28,30 @@ pub fn draw(f: &mut Frame, area: Rect, state: &AppState) {
     let inner = block.inner(modal);
     f.render_widget(block, modal);
 
-    let mut lines: Vec<Line> = Vec::new();
-    lines.push(section(s.help_keys_section));
-    lines.push(kv(s.help_q_esc, s.help_q_esc_desc));
-    lines.push(kv("?", s.help_qmark_desc));
-    lines.push(kv("r", s.help_r_desc));
-    lines.push(kv("+ / -", s.help_zoom_desc));
-    lines.push(kv("h j k l", s.help_move_desc));
-    lines.push(kv(", / .", s.help_scrub_desc));
-    lines.push(kv("p", s.help_play_desc));
-    lines.push(kv("m", s.help_map_desc));
-    lines.push(Line::from(""));
-    lines.push(section(s.help_legend_section));
-    lines.push(legend_line());
-    lines.push(Line::from(""));
-    lines.push(section(s.help_sources_section));
-    lines.push(kv(s.help_source_rain_jp, s.help_source_rain_jp_value));
-    lines.push(kv(
-        s.help_source_rain_global,
-        s.help_source_rain_global_value,
-    ));
-    lines.push(kv(s.help_source_map, s.help_source_map_value));
-    lines.push(Line::from(""));
-    lines.push(Line::from(Span::styled(
-        s.help_close_hint.to_string(),
-        Style::default().fg(theme::SUBTLE),
-    )));
+    let lines: Vec<Line> = vec![
+        section(s.help_keys_section),
+        kv(s.help_q_esc, s.help_q_esc_desc),
+        kv("?", s.help_qmark_desc),
+        kv("r", s.help_r_desc),
+        kv("+ / -", s.help_zoom_desc),
+        kv("h j k l", s.help_move_desc),
+        kv(", / .", s.help_scrub_desc),
+        kv("p", s.help_play_desc),
+        kv("m", s.help_map_desc),
+        Line::from(""),
+        section(s.help_legend_section),
+        legend_line(),
+        Line::from(""),
+        section(s.help_sources_section),
+        kv(s.help_source_rain_jp, s.help_source_rain_jp_value),
+        kv(s.help_source_rain_global, s.help_source_rain_global_value),
+        kv(s.help_source_map, s.help_source_map_value),
+        Line::from(""),
+        Line::from(Span::styled(
+            s.help_close_hint.to_string(),
+            Style::default().fg(theme::SUBTLE),
+        )),
+    ];
 
     f.render_widget(Paragraph::new(lines), inner);
 }
