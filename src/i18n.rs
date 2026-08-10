@@ -8,19 +8,14 @@
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, clap::ValueEnum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, clap::ValueEnum, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum Language {
     #[value(alias = "en")]
+    #[default]
     English,
     #[value(alias = "ja")]
     Japanese,
-}
-
-impl Default for Language {
-    fn default() -> Self {
-        Self::English
-    }
 }
 
 impl Language {

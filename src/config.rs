@@ -9,7 +9,7 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
     #[serde(default)]
     pub location: Location,
@@ -137,27 +137,18 @@ impl Default for RadarConfig {
     }
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            location: Location::default(),
-            ui: UiConfig::default(),
-            radar: RadarConfig::default(),
-        }
-    }
-}
-
 impl Config {
     /// 設定ディレクトリ（XDG 準拠）。
     /// 優先順位:
     ///   1. $XDG_CONFIG_HOME/termrain
     ///   2. $HOME/.config/termrain
+    ///
     /// Mac でも `~/Library/...` ではなく `~/.config/termrain` を使う（ユーザー希望）。
     pub fn dir() -> Option<PathBuf> {
-        if let Some(xdg) = std::env::var_os("XDG_CONFIG_HOME") {
-            if !xdg.is_empty() {
-                return Some(PathBuf::from(xdg).join("termrain"));
-            }
+        if let Some(xdg) = std::env::var_os("XDG_CONFIG_HOME")
+            && !xdg.is_empty()
+        {
+            return Some(PathBuf::from(xdg).join("termrain"));
         }
         std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config/termrain"))
     }
@@ -208,10 +199,10 @@ impl Config {
 /// キャッシュディレクトリ（XDG 準拠）。
 /// ログや地図タイルキャッシュなど、消えても困らないデータの置き場所。
 pub fn cache_dir() -> Option<PathBuf> {
-    if let Some(xdg) = std::env::var_os("XDG_CACHE_HOME") {
-        if !xdg.is_empty() {
-            return Some(PathBuf::from(xdg).join("termrain"));
-        }
+    if let Some(xdg) = std::env::var_os("XDG_CACHE_HOME")
+        && !xdg.is_empty()
+    {
+        return Some(PathBuf::from(xdg).join("termrain"));
     }
     std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".cache/termrain"))
 }

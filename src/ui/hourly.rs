@@ -35,7 +35,7 @@ pub fn draw(f: &mut Frame, area: Rect, state: &AppState) {
         .position(|p| p.time + chrono::Duration::hours(1) > now)
         .unwrap_or(0);
     // 表示数は端末幅から逆算（最大 48 時間）
-    let take = (inner.width as usize).saturating_sub(4).min(48).max(8);
+    let take = (inner.width as usize).saturating_sub(4).clamp(8, 48);
     let points: Vec<&crate::api::HourlyPoint> =
         state.hourly.iter().skip(start).take(take).collect();
 
