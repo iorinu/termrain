@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-08-11
+
+### Changed
+- Clean up Clippy warnings across the API, configuration, and UI code without
+  changing application behavior.
+
 ## [0.3.3] - 2026-08-11
 
 ### Fixed
@@ -128,7 +134,8 @@ Initial public release.
 - Bilingual README (`README.md` / `README.ja.md`), MIT LICENSE, and a
   main-screen screenshot in `docs/screenshots/main.png`.
 
-[Unreleased]: https://github.com/iorinu/termrain/compare/v0.3.3...HEAD
+[Unreleased]: https://github.com/iorinu/termrain/compare/v0.3.4...HEAD
+[0.3.4]: https://github.com/iorinu/termrain/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/iorinu/termrain/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/iorinu/termrain/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/iorinu/termrain/compare/v0.3.0...v0.3.1
