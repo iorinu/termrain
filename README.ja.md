@@ -217,6 +217,11 @@ rm -rf ~/.cache/termrain
 - **GADM 4.1** (日本市町村界): <https://gadm.org/>
 
 
+## 開発
+
+CI、Dependabot、ローカル Codex を使ったレビュー手順を含む開発者向け資料は、[docs/README.md](docs/README.md) にまとめています。
+
+
 ## ライセンス
 
 [MIT License](./LICENSE) © 2026 iorinu
