@@ -218,6 +218,11 @@ rm -rf ~/.cache/termrain
 - **GADM 4.1** (Japanese municipal boundaries): <https://gadm.org/>
 
 
+## Development
+
+Developer documentation, including the CI, Dependabot, and local Codex-assisted review workflow, is available in [docs/README.md](docs/README.md). It is currently written in Japanese.
+
+
 ## License
 
 [MIT License](./LICENSE) © 2026 iorinu
