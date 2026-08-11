@@ -130,4 +130,10 @@ TERMRAIN_SKIP_CODEX_REVIEW=1 git push
 | Codex が利用上限・ネットワーク障害で失敗する | 原因を確認し、緊急時だけ bypass を使う。常用しない。 |
 | Dependabot PR が多い | Cargo はグループ化済み。Actions 更新をまとめたい場合は `.github/dependabot.yml` の group を検討する。 |
 
-AI のレビューは助言であり、CI・人間のレビュー・テストの代わりにはならない。
+Codex のレビューは助言であり、CI・人間のレビュー・テストの代わりにはならない。
+
+## 設計資料から AI に実装を依頼する
+
+責務分離などの中長期設計は、[AI 実行タスク](ai-tasks.md) の `ready` task に分けてから依頼する。これにより「docs を読んで次の task を進めて」のような短い依頼でも、AI は task ID、許可範囲、非対象、完了条件を確認してから作業できる。
+
+`blocked` または `proposed` の task は設計判断が不足している状態であり、AI は実装を始めない。必要な判断や先行 task を報告する。

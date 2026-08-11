@@ -84,6 +84,20 @@ Keep changes within the appropriate layer whenever possible.
 - Keep user-facing CLI `--help` text in English and maintain both English and Japanese TUI support.
 - Do not mix unrelated refactors or dependency upgrades into a focused change.
 
+## Document-driven AI tasks
+
+The repository keeps executable implementation tasks in `docs/ai-tasks.md`.
+
+When the user refers vaguely to a design document section, asks for the "next" task, or asks to "read the docs and do this part":
+
+1. Read `docs/README.md`, the cited design document, `docs/ai-tasks.md`, and this file.
+2. Select only a task with `Status: ready`. For "next", select the highest-priority ready task; if several tasks have the same priority, present the candidates and ask the user to choose.
+3. Treat each task's `Allowed paths`, `Do not change`, and acceptance criteria as the scope contract.
+4. Inspect the referenced symbols and tests before editing. Do not infer APIs or move extra code merely because it is nearby.
+5. Run the task's acceptance checks and report the task ID, changed files, verification output, remaining risks, and newly unblocked task.
+
+Never implement `blocked` or `proposed` tasks without an explicit design decision that makes them ready. Update task status only when the implementation and its acceptance criteria are complete.
+
 ## Verification
 
 After changes, run the following commands as appropriate for the affected area:
