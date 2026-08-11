@@ -85,7 +85,7 @@ jobs:
           (Get-FileHash "$name.zip" -Algorithm SHA256).Hash + "  $name.zip" | Out-File "$name.zip.sha256" -Encoding ascii
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.target }}
           path: |
