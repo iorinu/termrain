@@ -218,7 +218,7 @@ Phase 1〜4 は個別の PR とする。Phase 5 は実際の機能要求に合�
 
 ## 今後の設計判断の記録
 
-大きな選択をした場合は、`docs/adr/` に短い ADR (Architecture Decision Record) を追加する。
+大きな選択をした場合は、`docs/adr/` に短い ADR (Architecture Decision Record) を追加する。ADR は「なぜその選択をしたか」を残す記録であり、実装作業そのものではない。実装対象は [AI 実行タスク](ai-tasks.md) の task として管理する。ADR が未決定のため task が `proposed` または `blocked` である場合、先に ADR で前提を確定する。
 
 ADR には次を残す。
 

@@ -13,6 +13,18 @@
 
 AI は [開発者向けドキュメント](README.md)、関連する設計資料、この manifest、`AGENTS.md` を読んでから作業する。「next」または「最初の実装可能な部分」が指定された場合は、`Status: ready` のうち最も高い Priority の task を選ぶ。複数の task が同じ Priority で ready の場合だけ、AI は実装せず候補を示して確認する。
 
+## 用語と識別子
+
+- **ADR (Architecture Decision Record)** は、設計上の選択とその理由を残す記録である。コード変更を直接指示するものではない。詳しくは [責務分離のロードマップ: 今後の設計判断の記録](architecture-roadmap.md#今後の設計判断の記録) を参照する。
+- **task** は、1 つの PR で実装・検証できる作業単位である。task ID は実装対象を指す。一方、ADR は task を `ready` にする前提となる判断を残すことがある。
+- 以下の prefix は termrain 内だけで使うローカルな命名規則であり、一般的な標準用語ではない。
+
+| Prefix | 展開 | 用途 |
+|---|---|---|
+| `ARC` | Architecture Refactoring Change | module の責務分離や依存方向を改善する task |
+| `RAD` | Radar behavior | radar の状態遷移、取得世代、表示整合性に関する task |
+| `MAP` | Map data | 地図データ、cache、検索に関する task |
+
 ## AI の実行プロトコル
 
 各 task を実施する AI は、必ず次の順に進める。
@@ -37,7 +49,7 @@ task が `blocked`、`proposed`、または依存 task 未完了なら、AI は�
 
 ## task の書式
 
-新しい task は、次の項目をすべて埋める。ID は領域を表す prefix と連番を使う。例: `ARC-001`、`RAD-001`、`MAP-001`。
+新しい task は、次の項目をすべて埋める。ID は上表の領域 prefix と連番を使う。例: `ARC-001`、`RAD-001`、`MAP-001`。新しい prefix を導入する場合は、この表に展開と用途を追加する。
 
 ```text
 ## TASK-ID — short title
