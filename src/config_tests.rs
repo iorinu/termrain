@@ -1,0 +1,112 @@
+use super::*;
+use std::ffi::OsString;
+use std::sync::Mutex;
+
+static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+struct EnvRestore {
+    xdg_config_home: Option<OsString>,
+}
+
+impl Drop for EnvRestore {
+    fn drop(&mut self) {
+        unsafe {
+            match &self.xdg_config_home {
+                Some(value) => std::env::set_var("XDG_CONFIG_HOME", value),
+                None => std::env::remove_var("XDG_CONFIG_HOME"),
+            }
+        }
+    }
+}
+
+#[test]
+fn default_config_keeps_the_tokyo_and_radar_defaults() {
+    let config = Config::default();
+
+    assert_eq!(config.location.name, "Tokyo");
+    assert_eq!(config.location.country, "JP");
+    assert_eq!(config.radar.zoom, 11);
+    assert_eq!(config.radar.map_style, MapStyle::CartoVoyager);
+    assert_eq!(config.ui.unit, "metric");
+    assert_eq!(config.ui.refresh_interval, 600);
+}
+
+#[test]
+fn map_styles_cycle_and_keep_their_urls_and_cache_keys() {
+    assert_eq!(MapStyle::GsiStd.next(), MapStyle::CartoVoyager);
+    assert_eq!(MapStyle::CartoVoyager.next(), MapStyle::GsiPhoto);
+    assert_eq!(MapStyle::GsiPhoto.next(), MapStyle::GsiStd);
+
+    assert_eq!(
+        MapStyle::GsiStd.tile_url(10, 1, 2),
+        "https://cyberjapandata.gsi.go.jp/xyz/std/10/1/2.png"
+    );
+    assert_eq!(MapStyle::GsiStd.cache_key(), "gsi_std");
+    assert_eq!(MapStyle::CartoVoyager.cache_key(), "carto_voyager");
+    assert_eq!(MapStyle::GsiPhoto.cache_key(), "gsi_photo");
+}
+
+#[test]
+fn config_round_trips_through_toml_without_changing_values() {
+    let original = Config {
+        location: Location {
+            name: "Paris".into(),
+            latitude: 48.8566,
+            longitude: 2.3522,
+            country: "FR".into(),
+        },
+        ui: UiConfig {
+            unit: "imperial".into(),
+            refresh_interval: 120,
+            language: crate::i18n::Language::Japanese,
+        },
+        radar: RadarConfig {
+            zoom: 8,
+            map_style: MapStyle::GsiPhoto,
+        },
+    };
+
+    let text = toml::to_string_pretty(&original).unwrap();
+    let restored: Config = toml::from_str(&text).unwrap();
+
+    assert_eq!(restored.location.name, original.location.name);
+    assert_eq!(restored.location.latitude, original.location.latitude);
+    assert_eq!(restored.location.longitude, original.location.longitude);
+    assert_eq!(restored.location.country, original.location.country);
+    assert_eq!(restored.ui.unit, original.ui.unit);
+    assert_eq!(restored.ui.refresh_interval, original.ui.refresh_interval);
+    assert_eq!(restored.ui.language, original.ui.language);
+    assert_eq!(restored.radar.zoom, original.radar.zoom);
+    assert_eq!(restored.radar.map_style, original.radar.map_style);
+}
+
+#[test]
+fn saves_and_loads_config_from_the_xdg_file_path() {
+    let _lock = ENV_LOCK.lock().unwrap();
+    let previous = EnvRestore {
+        xdg_config_home: std::env::var_os("XDG_CONFIG_HOME"),
+    };
+    let root = std::env::temp_dir().join(format!(
+        "termrain-config-test-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir(&root).unwrap();
+    unsafe { std::env::set_var("XDG_CONFIG_HOME", &root) };
+
+    let original = Config::default();
+    original.save().unwrap();
+    let loaded = Config::load_or_default().unwrap();
+
+    assert_eq!(loaded.location.name, original.location.name);
+    assert_eq!(loaded.location.latitude, original.location.latitude);
+    assert_eq!(loaded.location.longitude, original.location.longitude);
+    assert_eq!(loaded.radar.map_style, original.radar.map_style);
+    assert!(Config::path().unwrap().is_file());
+
+    drop(previous);
+    std::fs::remove_dir_all(root).unwrap();
+}
