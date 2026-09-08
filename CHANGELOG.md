@@ -9,12 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Replace the retired unauthenticated CARTO Voyager raster basemap with
-  OpenStreetMap Standard, while continuing to read legacy `carto_voyager`
-  settings.
+  OpenFreeMap Liberty by default. CARTO Voyager remains available as an
+  explicit comparison option and shows its current API-key-required response.
 
 ### Added
 - Add selectable OpenFreeMap Liberty support by rendering its MapLibre style
   and vector tiles to raster images before radar compositing.
+- Keep five map choices in the `m` cycle: OpenFreeMap Liberty, OpenStreetMap,
+  CARTO Voyager, GSI Standard, and GSI Aerial. GSI choices fall back to
+  OpenFreeMap outside Japan.
+- Add the `radar.open_free_map_road_scale` setting for adjusting Liberty road
+  widths without changing boundary, river, or rail widths.
 
 ## [0.3.4] - 2026-08-11
 

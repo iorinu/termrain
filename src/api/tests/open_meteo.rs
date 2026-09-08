@@ -130,16 +130,19 @@ fn converts_local_api_time_using_the_provider_offset() {
 }
 
 #[test]
-fn falls_back_to_openstreetmap_for_non_japanese_map_styles() {
+fn falls_back_to_openfreemap_for_non_japanese_gsi_styles() {
     let provider = OpenMeteo::new();
     provider.set_map_style(MapStyle::GsiStd);
-    assert_eq!(*provider.map_style.lock().unwrap(), MapStyle::OpenStreetMap);
+    assert_eq!(*provider.map_style.lock().unwrap(), MapStyle::OpenFreeMap);
 
     provider.set_map_style(MapStyle::GsiPhoto);
-    assert_eq!(*provider.map_style.lock().unwrap(), MapStyle::OpenStreetMap);
+    assert_eq!(*provider.map_style.lock().unwrap(), MapStyle::OpenFreeMap);
 
     provider.set_map_style(MapStyle::OpenStreetMap);
     assert_eq!(*provider.map_style.lock().unwrap(), MapStyle::OpenStreetMap);
+
+    provider.set_map_style(MapStyle::CartoVoyager);
+    assert_eq!(*provider.map_style.lock().unwrap(), MapStyle::CartoVoyager);
 
     provider.set_map_style(MapStyle::OpenFreeMap);
     assert_eq!(*provider.map_style.lock().unwrap(), MapStyle::OpenFreeMap);

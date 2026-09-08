@@ -128,7 +128,7 @@ CARTO APIキーを設定可能にする案もあるが、ユーザーごとの�
 
 ## 現在の状態
 
-CARTO Voyagerはデフォルトから外し、OpenStreetMap Standardをデフォルトにした。旧`carto_voyager`設定はOpenStreetMapとして互換読み込みする。見た目の比較用に、OpenFreeMap Libertyも選択可能にした。OpenFreeMapはMapLibre styleとMVTをezuでRGBA画像へ描画してから、既存の雨雲画像合成へ渡す。
+CARTO Voyagerはデフォルトから外し、OpenFreeMap Libertyをデフォルトにした。`carto_voyager`設定はCARTO Voyagerそのものを選択し、現在のAPIキー要求画像を比較用に表示する。`m`キーではOpenFreeMap Liberty、OpenStreetMap、CARTO Voyager、国土地理院標準地図、国土地理院航空写真の5種類を巡回できる。OpenFreeMapはMapLibre styleとMVTをezuでRGBA画像へ描画してから、既存の雨雲画像合成へ渡す。
 
 - Issue: [iorinu/termrain #17](https://github.com/iorinu/termrain/issues/17)
 - 修正前コードを基準に再現確認済み

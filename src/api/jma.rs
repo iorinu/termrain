@@ -87,7 +87,7 @@ impl Jma {
             map_tile_cache: Arc::new(Mutex::new(HashMap::new())),
             rain_image_cache: Arc::new(Mutex::new(HashMap::new())),
             map_image_cache: Arc::new(Mutex::new(HashMap::new())),
-            map_style: Arc::new(Mutex::new(crate::config::MapStyle::OpenStreetMap)),
+            map_style: Arc::new(Mutex::new(crate::config::MapStyle::OpenFreeMap)),
             language: Arc::new(Mutex::new(crate::i18n::Language::default())),
         }
     }
@@ -628,6 +628,10 @@ impl WeatherProvider for Jma {
         Self::set_map_style(self, style);
     }
 
+    fn set_open_free_map_road_scale(&self, scale: f64) {
+        self.openfreemap.set_road_scale(scale);
+    }
+
     fn set_language(&self, lang: crate::i18n::Language) {
         Self::set_language(self, lang);
     }
@@ -703,7 +707,7 @@ impl WeatherProvider for Jma {
         );
 
         // 地図と雨雲でズームを分離する。
-        // - 地図 (OpenStreetMap/OpenFreeMap/GSI): z=13 まで実データがある → 高ズームで取れば綺麗
+        // - 地図 (OpenFreeMap/OpenStreetMap/CARTO/GSI): z=13 まで実データがある
         // - 雨雲 (JMA hrpns): z=10 が上限 → それ以上は中心領域をクロップして拡大
         // view 範囲は地図ズームのタイル1枚分に固定 → 自然なズーム表示。
         let map_z: u8 = zoom.min(13);
@@ -742,7 +746,19 @@ impl WeatherProvider for Jma {
                         ((dx, dy), g)
                     });
                     map_img_fetches.push(async move {
-                        let g = self.fetch_map_image(map_z, mtx, mty).await.ok();
+                        let g = match self.fetch_map_image(map_z, mtx, mty).await {
+                            Ok(image) => Some(image),
+                            Err(error) => {
+                                tracing::warn!(
+                                    "背景地図タイル取得失敗 style={:?} z={} x={} y={}: {error:#}",
+                                    *self.map_style.lock().unwrap(),
+                                    map_z,
+                                    mtx,
+                                    mty
+                                );
+                                None
+                            }
+                        };
                         ((dx, dy), g)
                     });
                 }

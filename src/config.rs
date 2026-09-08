@@ -67,8 +67,9 @@ pub enum MapStyle {
     /// 国土地理院 標準地図（線画、文字くっきり）
     GsiStd,
     /// OpenStreetMap Standard（世界対応のラスタ地図）
-    #[serde(alias = "carto_voyager")]
     OpenStreetMap,
+    /// CARTO Voyager（現在はAPIキー要求画像が返る）
+    CartoVoyager,
     /// OpenFreeMap Liberty（MapLibre互換のベクタ地図）
     OpenFreeMap,
     /// 国土地理院 シームレス航空写真（衛星画像）
@@ -78,20 +79,36 @@ pub enum MapStyle {
 impl MapStyle {
     pub fn next(self) -> Self {
         match self {
-            Self::GsiStd => Self::OpenStreetMap,
-            Self::OpenStreetMap => Self::OpenFreeMap,
-            Self::OpenFreeMap => Self::GsiPhoto,
-            Self::GsiPhoto => Self::GsiStd,
+            Self::OpenFreeMap => Self::OpenStreetMap,
+            Self::OpenStreetMap => Self::CartoVoyager,
+            Self::CartoVoyager => Self::GsiStd,
+            Self::GsiStd => Self::GsiPhoto,
+            Self::GsiPhoto => Self::OpenFreeMap,
         }
     }
     pub fn label(self) -> &'static str {
         match self {
             Self::GsiStd => "国土地理院 標準",
             Self::OpenStreetMap => "OpenStreetMap (© OpenStreetMap contributors)",
+            Self::CartoVoyager => "CARTO Voyager (API key required)",
             Self::OpenFreeMap => "OpenFreeMap Liberty (© OpenMapTiles, © OpenStreetMap)",
             Self::GsiPhoto => "国土地理院 航空写真",
         }
     }
+
+    /// 国土地理院の地図は日本国内だけで使える。
+    pub fn effective_for_country(self, country: &str) -> Self {
+        if !country.eq_ignore_ascii_case("JP") && matches!(self, Self::GsiStd | Self::GsiPhoto) {
+            Self::OpenFreeMap
+        } else {
+            self
+        }
+    }
+
+    pub fn next_for_country(self, country: &str) -> Self {
+        self.next().effective_for_country(country)
+    }
+
     pub fn tile_url(self, z: u8, x: u32, y: u32) -> String {
         match self {
             Self::GsiStd => format!(
@@ -101,6 +118,10 @@ impl MapStyle {
             Self::OpenStreetMap => {
                 format!("https://tile.openstreetmap.org/{}/{}/{}.png", z, x, y)
             }
+            Self::CartoVoyager => format!(
+                "https://basemaps.cartocdn.com/rastertiles/voyager/{}/{}/{}.png",
+                z, x, y
+            ),
             Self::OpenFreeMap => {
                 format!("https://tiles.openfreemap.org/planet/{}/{}/{}.pbf", z, x, y)
             }
@@ -114,6 +135,7 @@ impl MapStyle {
         match self {
             Self::GsiStd => "gsi_std",
             Self::OpenStreetMap => "openstreetmap",
+            Self::CartoVoyager => "carto_voyager",
             Self::OpenFreeMap => "openfreemap_liberty",
             Self::GsiPhoto => "gsi_photo",
         }
@@ -127,10 +149,19 @@ pub struct RadarConfig {
     /// 背景地図のスタイル
     #[serde(default = "default_map_style")]
     pub map_style: MapStyle,
+    /// OpenFreeMap Liberty の道路幅倍率。0.7 なら公式styleの70%になる。
+    #[serde(default = "default_open_free_map_road_scale")]
+    pub open_free_map_road_scale: f64,
 }
 
+pub const DEFAULT_OPEN_FREE_MAP_ROAD_SCALE: f64 = 0.7;
+
 fn default_map_style() -> MapStyle {
-    MapStyle::OpenStreetMap
+    MapStyle::OpenFreeMap
+}
+
+fn default_open_free_map_road_scale() -> f64 {
+    DEFAULT_OPEN_FREE_MAP_ROAD_SCALE
 }
 
 impl Default for RadarConfig {
@@ -140,7 +171,8 @@ impl Default for RadarConfig {
         // zoom >= 11 は JMA タイルが z=10 までしか無いので、内部でクロップ拡大する。
         Self {
             zoom: 11,
-            map_style: MapStyle::OpenStreetMap,
+            map_style: MapStyle::OpenFreeMap,
+            open_free_map_road_scale: default_open_free_map_road_scale(),
         }
     }
 }

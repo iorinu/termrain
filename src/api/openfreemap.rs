@@ -7,12 +7,64 @@
 use anyhow::{Context, Result};
 use serde::Deserialize;
 use serde_json::Value;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tokio::sync::OnceCell;
 
 const STYLE_URL: &str = "https://tiles.openfreemap.org/styles/liberty";
 const VECTOR_SOURCE: &str = "openmaptiles";
 const TILE_SIZE: u32 = 256;
+
+/// 公式Liberty styleの道路系line-widthだけを倍率変更する。
+///
+/// 道路は本線と`*_casing`が別レイヤーなので、道路レイヤー全体に同じ倍率を
+/// 適用する。行政境界・河川・鉄道などの幅は変更しない。
+fn scale_road_widths(style: &mut Value, scale: f64) {
+    let scale = if scale.is_finite() {
+        scale.clamp(0.1, 2.0)
+    } else {
+        crate::config::DEFAULT_OPEN_FREE_MAP_ROAD_SCALE
+    };
+    let Some(layers) = style["layers"].as_array_mut() else {
+        return;
+    };
+
+    for layer in layers {
+        let is_road_layer = layer["id"].as_str().is_some_and(|id| {
+            id.starts_with("road_") || id.starts_with("bridge_") || id.starts_with("tunnel_")
+        });
+        if !is_road_layer {
+            continue;
+        }
+        if let Some(width) = layer["paint"].get_mut("line-width") {
+            scale_line_width_expression(width, scale);
+        }
+    }
+}
+
+fn scale_line_width_expression(value: &mut Value, scale: f64) {
+    if let Some(width) = value.as_f64() {
+        *value = serde_json::json!(width * scale);
+        return;
+    }
+
+    let Some(expression) = value.as_array_mut() else {
+        return;
+    };
+    let Some(operator) = expression.first().and_then(Value::as_str) else {
+        return;
+    };
+
+    let (first_output, step) = match operator {
+        "interpolate" => (4, 2),
+        "step" => (2, 2),
+        _ => return,
+    };
+    for index in (first_output..expression.len()).step_by(step) {
+        if let Some(width) = expression[index].as_f64() {
+            expression[index] = serde_json::json!(width * scale);
+        }
+    }
+}
 
 #[derive(Debug, Deserialize)]
 struct TileJson {
@@ -33,6 +85,7 @@ struct RendererState {
 pub struct OpenFreeMapRenderer {
     client: reqwest::Client,
     state: Arc<OnceCell<Arc<RendererState>>>,
+    road_scale: Arc<Mutex<f64>>,
 }
 
 impl OpenFreeMapRenderer {
@@ -40,7 +93,13 @@ impl OpenFreeMapRenderer {
         Self {
             client,
             state: Arc::new(OnceCell::new()),
+            road_scale: Arc::new(Mutex::new(crate::config::DEFAULT_OPEN_FREE_MAP_ROAD_SCALE)),
         }
+    }
+
+    /// 描画グラフ初期化前にOpenFreeMapの道路幅倍率を設定する。
+    pub fn set_road_scale(&self, scale: f64) {
+        *self.road_scale.lock().unwrap() = scale;
     }
 
     /// 指定した XYZ タイルを Liberty style で RGBA 画像へ変換する。
@@ -145,6 +204,10 @@ impl OpenFreeMapRenderer {
             .next()
             .context("OpenFreeMap TileJSONにタイルURLがありません")?;
 
+        let road_scale = *self.road_scale.lock().unwrap();
+        let mut style = style;
+        scale_road_widths(&mut style, road_scale);
+
         let options = ezu::translate::maplibre::ConvertOptions {
             tile_size: TILE_SIZE,
             ..Default::default()
@@ -159,6 +222,10 @@ impl OpenFreeMapRenderer {
             serde_json::to_string(&recipe).context("OpenFreeMap ezu style JSONシリアライズ失敗")?;
         let document = ezu::style::Document::from_json(&recipe_json)
             .map_err(|e| anyhow::anyhow!("OpenFreeMap ezu style解析失敗: {e}"))?;
+        let mut assets = ezu::paint::host::BrushBankLoader::default();
+        ezu::paint::host::prefetch_doc_assets(&document, std::path::Path::new("."), &mut assets)
+            .await
+            .map_err(|e| anyhow::anyhow!("OpenFreeMap style asset取得失敗: {e}"))?;
         let registry = ezu::paint::nodes::default_registry();
         let graph = ezu::graph::build_graph(&document, &registry)
             .map_err(|e| anyhow::anyhow!("OpenFreeMap ezu graph構築失敗: {e}"))?;
@@ -171,15 +238,52 @@ impl OpenFreeMapRenderer {
         tracing::info!(
             tile_template,
             pad,
+            road_scale,
             "OpenFreeMap Liberty renderer initialized"
         );
         Ok(RendererState {
             tile_template,
             graph,
             cache: ezu::graph::Cache::new(),
-            assets: ezu::paint::host::BrushBankLoader::default(),
+            assets,
             raster_sources: ezu::paint::host::build_raster_sources(&document, None),
             pad,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::scale_road_widths;
+    use serde_json::json;
+
+    #[test]
+    fn scales_road_width_outputs_without_changing_other_line_layers() {
+        let mut style = json!({
+            "layers": [
+                {
+                    "id": "road_minor_casing",
+                    "type": "line",
+                    "paint": {
+                        "line-width": [
+                            "interpolate", ["exponential", 1.2], ["zoom"],
+                            12, 0.5, 20, 18
+                        ]
+                    }
+                },
+                {
+                    "id": "boundary_2",
+                    "type": "line",
+                    "paint": {"line-width": 3}
+                }
+            ]
+        });
+
+        scale_road_widths(&mut style, 0.7);
+
+        let widths = &style["layers"][0]["paint"]["line-width"];
+        assert!((widths[4].as_f64().unwrap() - 0.35).abs() < f64::EPSILON);
+        assert!((widths[6].as_f64().unwrap() - 12.6).abs() < f64::EPSILON);
+        assert_eq!(style["layers"][1]["paint"]["line-width"], json!(3));
     }
 }

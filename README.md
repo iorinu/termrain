@@ -24,7 +24,7 @@ termrain uses the Kitty graphics protocol to overlay rain clouds on a color map,
   - 14-step color gradient with a legend bar baked into the image
   - Time scrub from -30 minutes (past) to +60 minutes (forecast)
   - Auto play loop with the `p` key
-  - Map style switch (OpenStreetMap / OpenFreeMap Liberty / GSI Standard / GSI Aerial)
+  - Map style switch (OpenFreeMap Liberty / OpenStreetMap / CARTO Voyager / GSI Standard / GSI Aerial)
 - **Localized UI**: English / Japanese (English is the default, switch via config or `--lang`)
 - **Automatic provider selection**: JMA in Japan, Open-Meteo everywhere else
 - **Tile cache**: map and radar tiles are cached in memory for smooth panning and zooming
@@ -116,7 +116,7 @@ termrain
 | `h` `j` `k` `l` | Pan the radar location (~2 km per keypress) |
 | `,` / `.` | Scrub radar time backward / forward |
 | `p` | Toggle radar animation playback |
-| `m` | Cycle map style (OpenStreetMap → OpenFreeMap Liberty → GSI Aerial → GSI Standard) |
+| `m` | Cycle map style (OpenFreeMap Liberty → OpenStreetMap → CARTO Voyager → GSI Standard → GSI Aerial) |
 
 
 ## CLI options
@@ -188,7 +188,8 @@ language = "english"     # english / japanese
 
 [radar]
 zoom = 11                # 6 (wide ≒ 130 km) to 13 (narrow ≒ 4 km)
-map_style = "open_street_map"  # open_street_map / open_free_map / gsi_std / gsi_photo; carto_voyager is a legacy alias
+map_style = "open_free_map"    # open_free_map / open_street_map / carto_voyager / gsi_std / gsi_photo
+open_free_map_road_scale = 0.7 # 0.1 to 2.0; smaller values make Liberty roads thinner
 ```
 
 `--save` rewrites this file with the current launch arguments.
@@ -212,6 +213,7 @@ rm -rf ~/.cache/termrain
 - **JMA Nowcast** (rain radar, Japan): <https://www.jma.go.jp/>
 - **GSI (Geospatial Information Authority of Japan)** (map tiles, Japan): <https://maps.gsi.go.jp/>
 - **OpenStreetMap Standard** (map tiles, worldwide): <https://www.openstreetmap.org/copyright>
+- **CARTO Voyager** (legacy map tile; currently returns an API-key-required image): <https://carto.com/basemaps>
 - **OpenFreeMap Liberty** (vector map tiles, worldwide): <https://openfreemap.org/>
 - **Open-Meteo** (weather forecast outside Japan, geocoding): <https://open-meteo.com/>
 - **RainViewer** (rain radar tiles outside Japan): <https://www.rainviewer.com/>

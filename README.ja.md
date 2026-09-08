@@ -24,7 +24,7 @@ Kitty graphics protocol を活用してカラー地図に雨雲を重ね、Yahoo
   - 14 段階のカラーグラデーション + 凡例カラーバー焼き込み
   - 時系列スクラブ (過去 30 分 〜 未来 60 分)
   - `p` キーで自動アニメーション再生
-  - 地図スタイル切替 (OpenStreetMap / OpenFreeMap Liberty / 国土地理院 標準 / 航空写真)
+  - 地図スタイル切替 (OpenFreeMap Liberty / OpenStreetMap / CARTO Voyager / 国土地理院 標準 / 航空写真)
 - **多言語対応**: 英語 / 日本語 (デフォルト英語、設定 or `--lang` で切替)
 - **自動プロバイダー切替**: 日本国内は気象庁 (JMA)、それ以外は Open-Meteo
 - **タイルキャッシュ**: 地図・雨雲タイルをメモリに保持し、移動・ズームを高速化
@@ -115,7 +115,7 @@ termrain
 | `h` `j` `k` `l` | 地点移動 (約 2km / キー) |
 | `,` / `.` | 雨雲を時系列で 前 / 後 にスクラブ |
 | `p` | 雨雲アニメーション 再生 / 停止 |
-| `m` | 地図スタイル切替 (OpenStreetMap → OpenFreeMap Liberty → 航空写真 → 国土地理院 標準) |
+| `m` | 地図スタイル切替 (OpenFreeMap Liberty → OpenStreetMap → CARTO Voyager → 国土地理院 標準 → 航空写真) |
 
 
 ## CLI 引数一覧
@@ -187,7 +187,8 @@ language = "english"     # english / japanese
 
 [radar]
 zoom = 11                # 6 (広域 ≒ 130km) 〜 13 (狭域 ≒ 4km)
-map_style = "open_street_map"  # open_street_map / open_free_map / gsi_std / gsi_photo; carto_voyager は旧設定名
+map_style = "open_free_map"    # open_free_map / open_street_map / carto_voyager / gsi_std / gsi_photo
+open_free_map_road_scale = 0.7 # 0.1〜2.0。小さい値ほどLibertyの道路が細くなる
 ```
 
 CLI 引数 `--save` で現在の起動引数をこのファイルに書き込めます。
@@ -211,6 +212,7 @@ rm -rf ~/.cache/termrain
 - **気象庁ナウキャスト** (雨雲レーダー、日本): <https://www.jma.go.jp/>
 - **国土地理院** (地図タイル、日本): <https://maps.gsi.go.jp/>
 - **OpenStreetMap Standard** (地図タイル、世界): <https://www.openstreetmap.org/copyright>
+- **CARTO Voyager** (旧地図タイル、現在はAPIキー要求画像を返す): <https://carto.com/basemaps>
 - **OpenFreeMap Liberty** (ベクタ地図タイル、世界): <https://openfreemap.org/>
 - **Open-Meteo** (海外の天気予報、Geocoding): <https://open-meteo.com/>
 - **RainViewer** (海外の雨雲レーダータイル): <https://www.rainviewer.com/>

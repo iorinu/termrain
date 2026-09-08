@@ -20,11 +20,11 @@ type MapTileKey = (&'static str, u8, u32, u32);
 
 pub struct OpenMeteo {
     client: reqwest::Client,
-    /// OpenStreetMap/GSI 等の地図画像をキャッシュ。スタイル別キー。
+    /// OpenStreetMap/CARTO/GSI 等の地図画像をキャッシュ。スタイル別キー。
     map_image_cache: Arc<Mutex<HashMap<MapTileKey, Arc<image::RgbaImage>>>>,
     /// OpenFreeMap Liberty の style/MVT レンダラー。
     openfreemap: super::openfreemap::OpenFreeMapRenderer,
-    /// 地図スタイル（外国ではOpenStreetMapまたはOpenFreeMapを使用）
+    /// 地図スタイル（外国ではOpenFreeMapまたは旧設定のOpenStreetMapを使用）
     map_style: Arc<Mutex<crate::config::MapStyle>>,
     /// 天気テキスト等の表示言語
     language: Arc<Mutex<crate::i18n::Language>>,
@@ -44,7 +44,7 @@ impl OpenMeteo {
             openfreemap: super::openfreemap::OpenFreeMapRenderer::new(client.clone()),
             client,
             map_image_cache: Arc::new(Mutex::new(HashMap::new())),
-            map_style: Arc::new(Mutex::new(crate::config::MapStyle::OpenStreetMap)),
+            map_style: Arc::new(Mutex::new(crate::config::MapStyle::OpenFreeMap)),
             language: Arc::new(Mutex::new(crate::i18n::Language::default())),
         }
     }
@@ -54,14 +54,18 @@ impl OpenMeteo {
     }
 
     pub fn set_map_style(&self, style: crate::config::MapStyle) {
-        // 地理院系は日本限定なので外国では OpenStreetMap に fallback
+        // 地理院系は日本限定なので外国では OpenFreeMap に fallback
         let effective = match style {
             crate::config::MapStyle::GsiStd | crate::config::MapStyle::GsiPhoto => {
-                crate::config::MapStyle::OpenStreetMap
+                crate::config::MapStyle::OpenFreeMap
             }
             s => s,
         };
         *self.map_style.lock().unwrap() = effective;
+    }
+
+    pub fn set_open_free_map_road_scale(&self, scale: f64) {
+        self.openfreemap.set_road_scale(scale);
     }
 
     async fn fetch_map_image(&self, z: u8, x: u32, y: u32) -> Result<Arc<image::RgbaImage>> {
@@ -355,7 +359,7 @@ impl WeatherProvider for OpenMeteo {
     ) -> Result<RadarGrid> {
         let aspect = aspect.clamp(1.0, 2.4);
         // 雨雲: RainViewer のタイル画像 (世界対応・無料・レート制限ゆるい)
-        // 地図: OpenStreetMap Standard または OpenFreeMap Liberty (世界対応)
+        // 地図: OpenFreeMap Liberty / OpenStreetMap / CARTO Voyager (世界対応)
         // Open-Meteo の多地点 precipitation は無料枠のレート制限がきつくて
         // 512地点クエリだとすぐ 429 になるので RainViewer に切り替えた。
         let map_z: u8 = zoom.min(13);
@@ -398,7 +402,19 @@ impl WeatherProvider for OpenMeteo {
                 let tx = tx as u32;
                 let ty = ty as u32;
                 map_fetches.push(async move {
-                    let g = self.fetch_map_image(map_z, tx, ty).await.ok();
+                    let g = match self.fetch_map_image(map_z, tx, ty).await {
+                        Ok(image) => Some(image),
+                        Err(error) => {
+                            tracing::warn!(
+                                "背景地図タイル取得失敗 style={:?} z={} x={} y={}: {error:#}",
+                                *self.map_style.lock().unwrap(),
+                                map_z,
+                                tx,
+                                ty
+                            );
+                            None
+                        }
+                    };
                     ((dx, dy), g)
                 });
             }
@@ -510,6 +526,10 @@ impl WeatherProvider for OpenMeteo {
 
     fn set_map_style(&self, style: crate::config::MapStyle) {
         Self::set_map_style(self, style);
+    }
+
+    fn set_open_free_map_road_scale(&self, scale: f64) {
+        Self::set_open_free_map_road_scale(self, scale);
     }
     fn set_language(&self, lang: crate::i18n::Language) {
         Self::set_language(self, lang);

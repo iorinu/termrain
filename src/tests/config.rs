@@ -26,17 +26,39 @@ fn default_config_keeps_the_tokyo_and_radar_defaults() {
     assert_eq!(config.location.name, "Tokyo");
     assert_eq!(config.location.country, "JP");
     assert_eq!(config.radar.zoom, 11);
-    assert_eq!(config.radar.map_style, MapStyle::OpenStreetMap);
+    assert_eq!(config.radar.map_style, MapStyle::OpenFreeMap);
+    assert_eq!(config.radar.open_free_map_road_scale, 0.7);
     assert_eq!(config.ui.unit, "metric");
     assert_eq!(config.ui.refresh_interval, 600);
 }
 
 #[test]
 fn map_styles_cycle_and_keep_their_urls_and_cache_keys() {
-    assert_eq!(MapStyle::GsiStd.next(), MapStyle::OpenStreetMap);
-    assert_eq!(MapStyle::OpenStreetMap.next(), MapStyle::OpenFreeMap);
-    assert_eq!(MapStyle::OpenFreeMap.next(), MapStyle::GsiPhoto);
-    assert_eq!(MapStyle::GsiPhoto.next(), MapStyle::GsiStd);
+    assert_eq!(MapStyle::OpenFreeMap.next(), MapStyle::OpenStreetMap);
+    assert_eq!(MapStyle::OpenStreetMap.next(), MapStyle::CartoVoyager);
+    assert_eq!(MapStyle::CartoVoyager.next(), MapStyle::GsiStd);
+    assert_eq!(MapStyle::GsiStd.next(), MapStyle::GsiPhoto);
+    assert_eq!(MapStyle::GsiPhoto.next(), MapStyle::OpenFreeMap);
+    assert_eq!(
+        MapStyle::GsiStd.effective_for_country("JP"),
+        MapStyle::GsiStd
+    );
+    assert_eq!(
+        MapStyle::GsiStd.effective_for_country("FR"),
+        MapStyle::OpenFreeMap
+    );
+    assert_eq!(
+        MapStyle::OpenFreeMap.next_for_country("FR"),
+        MapStyle::OpenStreetMap
+    );
+    assert_eq!(
+        MapStyle::OpenStreetMap.next_for_country("FR"),
+        MapStyle::CartoVoyager
+    );
+    assert_eq!(
+        MapStyle::CartoVoyager.next_for_country("FR"),
+        MapStyle::OpenFreeMap
+    );
 
     assert_eq!(
         MapStyle::GsiStd.tile_url(10, 1, 2),
@@ -44,6 +66,11 @@ fn map_styles_cycle_and_keep_their_urls_and_cache_keys() {
     );
     assert_eq!(MapStyle::GsiStd.cache_key(), "gsi_std");
     assert_eq!(MapStyle::OpenStreetMap.cache_key(), "openstreetmap");
+    assert_eq!(MapStyle::CartoVoyager.cache_key(), "carto_voyager");
+    assert_eq!(
+        MapStyle::CartoVoyager.tile_url(5, 28, 12),
+        "https://basemaps.cartocdn.com/rastertiles/voyager/5/28/12.png"
+    );
     assert_eq!(MapStyle::OpenFreeMap.cache_key(), "openfreemap_liberty");
     assert_eq!(
         MapStyle::OpenFreeMap.tile_url(5, 28, 12),
@@ -53,17 +80,17 @@ fn map_styles_cycle_and_keep_their_urls_and_cache_keys() {
 }
 
 #[test]
-fn default_and_legacy_carto_settings_use_openstreetmap() {
+fn default_and_carto_settings_are_compatible() {
     let default_style = Config::default().radar.map_style;
     assert_eq!(
         default_style.label(),
-        "OpenStreetMap (© OpenStreetMap contributors)"
+        "OpenFreeMap Liberty (© OpenMapTiles, © OpenStreetMap)"
     );
     assert_eq!(
         default_style.tile_url(5, 28, 12),
-        "https://tile.openstreetmap.org/5/28/12.png"
+        "https://tiles.openfreemap.org/planet/5/28/12.pbf"
     );
-    assert_eq!(default_style.cache_key(), "openstreetmap");
+    assert_eq!(default_style.cache_key(), "openfreemap_liberty");
 
     let legacy: Config = toml::from_str(
         r#"
@@ -73,11 +100,12 @@ fn default_and_legacy_carto_settings_use_openstreetmap() {
         "#,
     )
     .unwrap();
-    assert_eq!(legacy.radar.map_style, default_style);
+    assert_eq!(legacy.radar.map_style, MapStyle::CartoVoyager);
+    assert_eq!(legacy.radar.open_free_map_road_scale, 0.7);
     assert!(
         toml::to_string(&legacy)
             .unwrap()
-            .contains("map_style = \"open_street_map\"")
+            .contains("map_style = \"carto_voyager\"")
     );
 }
 
@@ -98,6 +126,7 @@ fn config_round_trips_through_toml_without_changing_values() {
         radar: RadarConfig {
             zoom: 8,
             map_style: MapStyle::GsiPhoto,
+            open_free_map_road_scale: 0.6,
         },
     };
 
@@ -113,6 +142,10 @@ fn config_round_trips_through_toml_without_changing_values() {
     assert_eq!(restored.ui.language, original.ui.language);
     assert_eq!(restored.radar.zoom, original.radar.zoom);
     assert_eq!(restored.radar.map_style, original.radar.map_style);
+    assert_eq!(
+        restored.radar.open_free_map_road_scale,
+        original.radar.open_free_map_road_scale
+    );
 }
 
 #[test]

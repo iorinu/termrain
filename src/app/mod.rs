@@ -44,7 +44,7 @@ use state::Msg;
 
 pub async fn run(args: Args) -> Result<()> {
     // 1) CLI 前処理（--list-city / --dump 等の早期終了はここで吸収）
-    let Some(config) = startup::prepare(&args).await? else {
+    let Some(mut config) = startup::prepare(&args).await? else {
         return Ok(());
     };
 
@@ -52,8 +52,13 @@ pub async fn run(args: Args) -> Result<()> {
     let provider: Arc<dyn WeatherProvider> =
         Arc::from(select_provider(&config.location.country, args.force_jma));
     let provider_name = provider.name().to_string();
+    config.radar.map_style = config
+        .radar
+        .map_style
+        .effective_for_country(&config.location.country);
     // 設定で指定された地図スタイル・言語をプロバイダーに反映
     provider.set_map_style(config.radar.map_style);
+    provider.set_open_free_map_road_scale(config.radar.open_free_map_road_scale);
     provider.set_language(config.ui.language);
 
     // --dump モード: TUI を立ち上げず標準出力に出して終了
