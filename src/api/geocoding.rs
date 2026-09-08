@@ -81,3 +81,7 @@ pub async fn search_many(
         .collect();
     Ok(hits)
 }
+
+#[cfg(test)]
+#[path = "tests/geocoding.rs"]
+mod tests;
