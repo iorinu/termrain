@@ -206,3 +206,7 @@ pub fn cache_dir() -> Option<PathBuf> {
     }
     std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".cache/termrain"))
 }
+
+#[cfg(test)]
+#[path = "tests/config.rs"]
+mod tests;

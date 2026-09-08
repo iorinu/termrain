@@ -172,13 +172,5 @@ pub fn spawn_radar(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::should_apply_radar;
-
-    #[test]
-    fn accepts_only_the_latest_radar_request() {
-        assert!(should_apply_radar(7, 7));
-        assert!(!should_apply_radar(6, 7));
-        assert!(!should_apply_radar(8, 7));
-    }
-}
+#[path = "tests/fetch.rs"]
+mod tests;

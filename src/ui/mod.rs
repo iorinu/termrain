@@ -264,3 +264,7 @@ pub fn titled_block(title: &str) -> Block<'_> {
         ))
         .style(Style::default().bg(theme::BG))
 }
+
+#[cfg(test)]
+#[path = "tests/mod.rs"]
+mod tests;

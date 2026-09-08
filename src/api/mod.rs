@@ -139,3 +139,7 @@ pub fn select_provider(country: &str, force_jma: bool) -> Box<dyn WeatherProvide
         Box::new(open_meteo::OpenMeteo::new())
     }
 }
+
+#[cfg(test)]
+#[path = "tests/provider.rs"]
+mod tests;
