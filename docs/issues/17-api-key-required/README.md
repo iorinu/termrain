@@ -11,6 +11,16 @@ carto.com/basemaps/api_key
 
 これはtermrainの設定ファイルにAPIキーを入力していないことが直接の原因ではない。修正前のtermrainは、APIキー不要の公開タイルとしてCARTO VoyagerのURLを使っていたが、そのURLが現在はHTTP 200でAPIキー要求の画像を返している。
 
+## CARTO側の変更時期
+
+CARTOの公式`basemap-styles`リポジトリでは、2026-08-14 11:21 UTCに「ラスタ地図にAPIキーが必要になり、ラスタ地図を廃止する」という内容のcommitが作成されている。[2] その変更を含むPR #48は、2026-08-20 15:53 UTCにmergeされた。[1][3]
+
+PR本文には、未認証のラスタタイルに`API key required`の透かしを付けていることが明記されている。[1] 現在のCARTO公式ページも、CARTO basemapの利用にはAPIキーが必要であると案内している。[4]
+
+したがって、公開情報から確認できる範囲では、CARTOがAPIキー必須化を公式に告知した時期は2026-08-14〜2026-08-20 UTCの間である。CDNが実際に透かし画像へ切り替わった正確な時刻については、公開履歴やアーカイブから確認できなかったため断定しない。Issue #17の報告時点では、すでにこの仕様変更の影響を受けている。
+
+代替地図の比較と選定理由は、[地図プロバイダー選定調査](map-provider-research.md)にまとめた。
+
 ## Issueの再現情報
 
 Issue #17に報告された環境は次のとおり。
@@ -123,3 +133,10 @@ CARTO APIキーを設定可能にする案もあるが、ユーザーごとの�
 - Issue: [iorinu/termrain #17](https://github.com/iorinu/termrain/issues/17)
 - 修正前コードを基準に再現確認済み
 - APIキー値などの秘密情報は取得・記録していない
+
+## Sources
+
+[1] https://github.com/CartoDB/basemap-styles/pull/48
+[2] https://github.com/CartoDB/basemap-styles/commit/aac8ff6710b5401e3d8972fb8df08cfb3366b2f6
+[3] https://github.com/CartoDB/basemap-styles/commit/64d082a6bc6039b1a0a0a9fb5312330fedd0bba9
+[4] https://carto.com/basemaps
