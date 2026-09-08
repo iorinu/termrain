@@ -208,5 +208,5 @@ pub fn cache_dir() -> Option<PathBuf> {
 }
 
 #[cfg(test)]
-#[path = "config_tests.rs"]
+#[path = "tests/config.rs"]
 mod tests;
