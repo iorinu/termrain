@@ -53,3 +53,7 @@ pub struct Args {
     #[arg(long = "completion", value_name = "SHELL")]
     pub completion: Option<Shell>,
 }
+
+#[cfg(test)]
+#[path = "cli_tests.rs"]
+mod tests;
