@@ -90,9 +90,13 @@ pub fn handle_event(
         KeyCode::Char('p') => {
             state.radar_playing = !state.radar_playing;
         }
-        // 地図スタイル切替 (GSI → CARTO → 衛星写真 → GSI ...)
+        // 地図スタイル切替 (Liberty → OSM → CARTO → GSI標準 → 航空写真 ...)
         KeyCode::Char('m') | KeyCode::Char('M') => {
-            state.config.radar.map_style = state.config.radar.map_style.next();
+            state.config.radar.map_style = state
+                .config
+                .radar
+                .map_style
+                .next_for_country(&state.config.location.country);
             provider.set_map_style(state.config.radar.map_style);
             state.radar_loading = true;
             request_radar(state, provider.clone(), tx.clone());

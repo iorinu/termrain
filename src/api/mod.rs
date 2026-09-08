@@ -8,6 +8,7 @@
 pub mod geocoding;
 pub mod jma;
 pub mod open_meteo;
+mod openfreemap;
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -119,6 +120,9 @@ pub trait WeatherProvider: Send + Sync {
 
     /// 背景地図スタイルの切替（JMA だけが対応、Open-Meteo は無視）
     fn set_map_style(&self, _style: crate::config::MapStyle) {}
+
+    /// OpenFreeMap Liberty の道路幅倍率を設定する。
+    fn set_open_free_map_road_scale(&self, _scale: f64) {}
 
     /// 表示言語の切替（Open-Meteo が wmo_to_text の言語切替に使う）
     fn set_language(&self, _lang: crate::i18n::Language) {}

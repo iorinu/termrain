@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-08
+
+### Fixed
+- Replace the retired unauthenticated CARTO Voyager raster basemap with
+  OpenFreeMap Liberty by default. CARTO Voyager remains available as an
+  explicit comparison option and shows its current API-key-required response.
+
+### Added
+- Add selectable OpenFreeMap Liberty support by rendering its MapLibre style
+  and vector tiles to raster images before radar compositing.
+- Keep five map choices in the `m` cycle: OpenFreeMap Liberty, OpenStreetMap,
+  CARTO Voyager, GSI Standard, and GSI Aerial. GSI choices fall back to
+  OpenFreeMap outside Japan.
+- Add the `radar.open_free_map_road_scale` setting for adjusting Liberty road
+  widths without changing boundary, river, or rail widths.
+
 ## [0.3.4] - 2026-08-11
 
 ### Changed
@@ -134,7 +150,8 @@ Initial public release.
 - Bilingual README (`README.md` / `README.ja.md`), MIT LICENSE, and a
   main-screen screenshot in `docs/screenshots/main.png`.
 
-[Unreleased]: https://github.com/iorinu/termrain/compare/v0.3.4...HEAD
+[Unreleased]: https://github.com/iorinu/termrain/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/iorinu/termrain/compare/v0.3.4...v0.4.0
 [0.3.4]: https://github.com/iorinu/termrain/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/iorinu/termrain/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/iorinu/termrain/compare/v0.3.1...v0.3.2
