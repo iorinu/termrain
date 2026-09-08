@@ -207,6 +207,69 @@ fn parse_local_with_offset(s: &str, offset_seconds: Option<i32>) -> Result<DateT
     Ok(dt.with_timezone(&Local))
 }
 
+fn convert_current_weather(
+    resp: ForecastResponse,
+    lang: crate::i18n::Language,
+) -> Result<CurrentWeather> {
+    let offset = resp.utc_offset_seconds;
+    let cur = resp.current.context("Open-Meteo: current が無い")?;
+    Ok(CurrentWeather {
+        observed_at: parse_local_with_offset(&cur.time, offset)?,
+        condition: wmo_to_text(cur.weather_code, lang).to_string(),
+        icon: wmo_to_icon(cur.weather_code),
+        temperature_c: cur.temperature_2m,
+        humidity_pct: cur.relative_humidity_2m,
+        wind_speed_ms: cur.wind_speed_10m,
+        wind_direction_deg: cur.wind_direction_10m,
+    })
+}
+
+fn convert_hourly(resp: ForecastResponse) -> Result<Vec<HourlyPoint>> {
+    let offset = resp.utc_offset_seconds;
+    let h = resp.hourly.context("Open-Meteo: hourly が無い")?;
+    let mut out = Vec::with_capacity(h.time.len());
+    for i in 0..h.time.len() {
+        let icon = h
+            .weather_code
+            .as_ref()
+            .and_then(|v| v.get(i).copied())
+            .map(wmo_to_icon)
+            .unwrap_or(WeatherIcon::Unknown);
+        out.push(HourlyPoint {
+            time: parse_local_with_offset(&h.time[i], offset)?,
+            temperature_c: h.temperature_2m[i],
+            precipitation_mm: h.precipitation[i],
+            precipitation_prob_pct: h
+                .precipitation_probability
+                .as_ref()
+                .and_then(|v| v.get(i).copied().flatten()),
+            icon,
+        });
+    }
+    Ok(out)
+}
+
+fn convert_daily(resp: ForecastResponse, lang: crate::i18n::Language) -> Result<Vec<DailyPoint>> {
+    let d = resp.daily.context("Open-Meteo: daily が無い")?;
+    let mut out = Vec::with_capacity(d.time.len());
+    for i in 0..d.time.len() {
+        let date = NaiveDate::parse_from_str(&d.time[i], "%Y-%m-%d")?;
+        let code = d.weather_code[i];
+        out.push(DailyPoint {
+            date,
+            condition: wmo_to_text(code, lang).into(),
+            icon: wmo_to_icon(code),
+            temp_max_c: d.temperature_2m_max[i],
+            temp_min_c: d.temperature_2m_min[i],
+            precipitation_prob_pct: d
+                .precipitation_probability_max
+                .as_ref()
+                .and_then(|v| v.get(i).copied().flatten()),
+        });
+    }
+    Ok(out)
+}
+
 #[async_trait]
 impl WeatherProvider for OpenMeteo {
     fn name(&self) -> &'static str {
@@ -235,17 +298,7 @@ impl WeatherProvider for OpenMeteo {
             .error_for_status()?
             .json()
             .await?;
-        let offset = resp.utc_offset_seconds;
-        let cur = resp.current.context("Open-Meteo: current が無い")?;
-        Ok(CurrentWeather {
-            observed_at: parse_local_with_offset(&cur.time, offset)?,
-            condition: wmo_to_text(cur.weather_code, *self.language.lock().unwrap()).to_string(),
-            icon: wmo_to_icon(cur.weather_code),
-            temperature_c: cur.temperature_2m,
-            humidity_pct: cur.relative_humidity_2m,
-            wind_speed_ms: cur.wind_speed_10m,
-            wind_direction_deg: cur.wind_direction_10m,
-        })
+        convert_current_weather(resp, *self.language.lock().unwrap())
     }
 
     async fn hourly(&self, lat: f64, lon: f64) -> Result<Vec<HourlyPoint>> {
@@ -262,28 +315,7 @@ impl WeatherProvider for OpenMeteo {
             .error_for_status()?
             .json()
             .await?;
-        let offset = resp.utc_offset_seconds;
-        let h = resp.hourly.context("Open-Meteo: hourly が無い")?;
-        let mut out = Vec::with_capacity(h.time.len());
-        for i in 0..h.time.len() {
-            let icon = h
-                .weather_code
-                .as_ref()
-                .and_then(|v| v.get(i).copied())
-                .map(wmo_to_icon)
-                .unwrap_or(WeatherIcon::Unknown);
-            out.push(HourlyPoint {
-                time: parse_local_with_offset(&h.time[i], offset)?,
-                temperature_c: h.temperature_2m[i],
-                precipitation_mm: h.precipitation[i],
-                precipitation_prob_pct: h
-                    .precipitation_probability
-                    .as_ref()
-                    .and_then(|v| v.get(i).copied().flatten()),
-                icon,
-            });
-        }
-        Ok(out)
+        convert_hourly(resp)
     }
 
     async fn daily(&self, lat: f64, lon: f64) -> Result<Vec<DailyPoint>> {
@@ -300,24 +332,7 @@ impl WeatherProvider for OpenMeteo {
             .error_for_status()?
             .json()
             .await?;
-        let d = resp.daily.context("Open-Meteo: daily が無い")?;
-        let mut out = Vec::with_capacity(d.time.len());
-        for i in 0..d.time.len() {
-            let date = NaiveDate::parse_from_str(&d.time[i], "%Y-%m-%d")?;
-            let code = d.weather_code[i];
-            out.push(DailyPoint {
-                date,
-                condition: wmo_to_text(code, *self.language.lock().unwrap()).into(),
-                icon: wmo_to_icon(code),
-                temp_max_c: d.temperature_2m_max[i],
-                temp_min_c: d.temperature_2m_min[i],
-                precipitation_prob_pct: d
-                    .precipitation_probability_max
-                    .as_ref()
-                    .and_then(|v| v.get(i).copied().flatten()),
-            });
-        }
-        Ok(out)
+        convert_daily(resp, *self.language.lock().unwrap())
     }
 
     async fn radar(
@@ -631,3 +646,7 @@ fn build_composite_image_rv(
 
     Some(image::DynamicImage::ImageRgba8(canvas))
 }
+
+#[cfg(test)]
+#[path = "tests/open_meteo.rs"]
+mod tests;
