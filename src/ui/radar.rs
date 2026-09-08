@@ -475,3 +475,7 @@ pub fn draw(f: &mut Frame, area: Rect, state: &mut AppState) {
 
     f.render_widget(canvas, inner);
 }
+
+#[cfg(test)]
+#[path = "tests/radar.rs"]
+mod tests;
