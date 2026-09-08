@@ -1355,12 +1355,5 @@ fn map_dot_tile_zoom(map_z: u8, _rain_z: u8) -> u8 {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::map_dot_tile_zoom;
-
-    #[test]
-    fn map_dot_tiles_use_the_map_coordinate_zoom() {
-        assert_eq!(map_dot_tile_zoom(13, 10), 13);
-        assert_eq!(map_dot_tile_zoom(8, 8), 8);
-    }
-}
+#[path = "tests/jma.rs"]
+mod tests;
