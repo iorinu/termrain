@@ -14,6 +14,36 @@
 
 OpenFreeMapはAPIキー不要で利用できる点が魅力的だが、公式のQuick StartはMapLibreでベクタタイルのstyle URLを読み込む構成になっている。現在のtermrainへ導入するには、ベクタタイルを描画してラスタ画像へ合成する仕組みが必要になるため、Issue #17の最小修正には採用しない。将来、地図描画方式を見直すときの候補として残す。
 
+## 候補地図の表示例
+
+同じ地点を比較できるように、Issue #17と同じ座標付近（緯度50.186、経度15.041）を使った。ラスタタイルの例はズーム5・タイル座標`x=28, y=12`で取得し、OpenFreeMapは同じ中心座標・ズームで公式の`Liberty` styleをMapLibreから描画した。画像は背景地図だけで、termrainの雨雲レーダー画像は重ねていない。
+
+### CARTO Voyager（現在の状態）
+
+![CARTO VoyagerのAPIキー要求画像](images/carto-voyager-api-key-required.png)
+
+HTTP 200のPNGだが、地図ではなく`API KEY REQUIRED`の透かし画像が返る。[1]
+
+### OpenStreetMap Standard
+
+![OpenStreetMap Standardの地図タイル](images/openstreetmap-standard.png)
+
+通常の地図タイルが返る。表示時には`© OpenStreetMap contributors`の帰属表示が必要になる。[5][6]
+
+### OpenFreeMap Liberty
+
+![OpenFreeMap Liberty styleの地図プレビュー](images/openfreemap-liberty.png)
+
+道路、都市名、行政境界などが表示される。これはPNGタイルではなく、OpenFreeMap公式のstyle URLをMapLibreで描画したプレビューである。[7][8]
+
+### Esri World Street Map
+
+![Esri World Street Mapの地図タイル](images/esri-world-street-map.jpg)
+
+正常なJPEGの地図タイルが返る。複数のデータ提供元に関する帰属表示が必要で、公式メタデータではサービスが更新されていない状態とされている。[9]
+
+画像ファイルはこのドキュメントと同じIssueフォルダの`images/`に保存している。実装後のtermrain画面では、ここに示した地図へ雨雲レーダー画像やUIが重なるため、最終的な見た目は別途termrainで確認する。
+
 ## 候補の比較
 
 | 候補 | APIキー | 現在のコードとの互換性 | 主な制約 | 判定 |
