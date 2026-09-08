@@ -6,13 +6,13 @@
 
 ## 結論
 
-当面の修正では、OpenStreetMap標準ラスタタイルを使う案を第一候補にする。
+Issue #17の復旧用デフォルトは、OpenStreetMap標準ラスタタイルにする。OpenFreeMap Libertyも選択可能な実装として追加した。
 
 理由は、termrainが現在すでにPNG/JPEGのラスタタイルを取得して`image::RgbaImage`へ変換しているため、地図URLと表示上の帰属情報を変更すれば対応できるからである。ベクタタイル描画用の新しい大きな依存関係や、画像合成処理の作り直しを必要としない。
 
-ただし、OpenStreetMapの標準タイルサーバーには利用ポリシーがある。User-Agent、帰属表示、リクエスト量を守ることを実装条件にする。詳細は「実装時の条件」に記載する。
+OpenStreetMapの標準タイルサーバーには利用ポリシーがある。User-Agent、帰属表示、リクエスト量を守ることを実装条件にする。詳細は「実装時の条件」に記載する。
 
-OpenFreeMapはAPIキー不要で利用できる点が魅力的だが、公式のQuick StartはMapLibreでベクタタイルのstyle URLを読み込む構成になっている。現在のtermrainへ導入するには、ベクタタイルを描画してラスタ画像へ合成する仕組みが必要になるため、Issue #17の最小修正には採用しない。将来、地図描画方式を見直すときの候補として残す。
+OpenFreeMapはAPIキー不要で利用できる。公式のQuick StartどおりMapLibre styleとベクタタイルを使うため、termrainにはezuのCPUレンダラーを追加し、MVTをRGBA画像へ描画してから既存の雨雲画像合成へ渡す方式で対応した。OpenStreetMapより依存関係と初回描画処理は大きいが、CARTO Voyagerに近い見た目を選択できる。
 
 ## 候補地図の表示例
 
@@ -50,7 +50,7 @@ HTTP 200のPNGだが、地図ではなく`API KEY REQUIRED`の透かし画像が
 |---|---|---|---|---|
 | CARTO Voyager ラスタ | 必須化。未認証リクエストは透かし画像 | 高い | ラスタ地図が廃止予定 | 採用しない |
 | OpenStreetMap Standard ラスタ | 今回のURL取得では不要 | 高い。既存の画像合成を利用できる | User-Agent、帰属表示、利用量の制約。SLAなし | 当面の第一候補 |
-| OpenFreeMap | 不要。公式サイトは制限なし・登録不要・APIキー不要と説明 | 低い。MapLibre向けベクタstyle | ベクタタイル描画の導入が必要 | 将来候補 |
+| OpenFreeMap Liberty | 不要。公式サイトは制限なし・登録不要・APIキー不要と説明 | ezuでMapLibre style/MVTをRGBAへ変換 | ezu依存、style変換・glyph取得・CPU描画が必要 | 選択可能な比較候補 |
 | Esri World Street Map ラスタ | 今回のタイル取得では不要 | 高い。JPEGを既存処理で読める | サービス情報に「成熟サポート中で更新なし」と記載 | 採用しない |
 
 ## CARTO Voyager
@@ -112,7 +112,7 @@ https://tiles.openfreemap.org/styles/liberty
 
 このstyleは、調査時にHTTP 200のJSONとして取得できた。styleのversionは8で、ベクタタイルのsourceと多数のレイヤーを定義していた。つまり、現在のtermrainが直接取得しているPNG/JPEGタイルとは形式が異なる。
 
-OpenFreeMapを採用する場合は、MapLibreなどでベクタタイルを描画し、RainViewer画像との合成方法を設計し直す必要がある。APIキー不要という点だけで選ぶと、Issue #17の修正範囲を大きく超える。
+termrainでは、OpenFreeMapのstyle JSONをezuのstyleへ変換し、versioned TileJSONから取得したMVTをRGBAタイルへ描画する。描画結果はOpenStreetMapと同じ`image::RgbaImage`の経路に入り、RainViewer画像との合成方式は変更しない。高ズームではNatural Earthのラスタソースを透明画像で束縛し、不要な低ズーム画像取得を避ける。低ズームではezuのラスタソース取得を使う。
 
 ## Esri World Street Map
 
@@ -132,13 +132,14 @@ Issue #17の最小修正では、次の順序を推奨する。
 
 1. CARTO Voyagerをデフォルトの地図ソースから外す
 2. OpenStreetMap Standardラスタへ切り替える
-3. 既存の`carto_voyager`設定を新しい地図スタイルへ互換読み込みする
-4. `© OpenStreetMap contributors`をUI上に明確に表示する
-5. User-Agentとタイル取得頻度を確認する
-6. URL、設定互換、Open-Meteoの海外地点fallbackを固定テストする
-7. 実際の海外地点で、APIキー要求の透かしが出ないことを手動確認する
+3. 既存の`carto_voyager`設定をOpenStreetMapへ互換読み込みする
+4. OpenFreeMap Libertyを`m`キーと設定ファイルから選択可能にする
+5. `© OpenStreetMap contributors`またはOpenFreeMap/OpenMapTilesの帰属を表示する
+6. User-Agent、style/MVT取得、タイル取得頻度を確認する
+7. URL、設定互換、Open-Meteoの海外地点fallbackを固定テストする
+8. 実際の海外地点で、両方の背景地図にAPIキー要求の透かしが出ないことを手動確認する
 
-将来、タイル利用量や表示品質、SLAが問題になった場合は、OpenFreeMapのベクタタイル導入、またはAPIキーを前提にした商用タイルサービスを別途検討する。その場合は依存関係、利用規約、認証情報の保管場所を設計してから変更する。
+現時点ではOpenStreetMapをデフォルトにし、見た目を優先する場合はOpenFreeMap Libertyを選ぶ。OpenFreeMapをデフォルトへ変更する場合は、ezuの依存サイズ、初回style/glyph取得時間、CPU描画時間を実機で確認してから決める。
 
 ## Sources
 
@@ -149,3 +150,5 @@ Issue #17の最小修正では、次の順序を推奨する。
 [7] https://openfreemap.org
 [8] https://openfreemap.org/quick_start
 [9] https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer
+[10] https://github.com/reearth/ezu
+[11] https://crates.io/crates/ezu

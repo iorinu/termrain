@@ -27,7 +27,9 @@ flowchart LR
     State --> UI["描画専用 UI<br/>src/ui/"]
 
     JMA --> JmaApi[気象庁 / 国土地理院]
-    OpenMeteo --> GlobalApi[Open-Meteo / RainViewer / OpenStreetMap]
+    OpenMeteo --> GlobalApi[Open-Meteo / RainViewer / OSM / OpenFreeMap]
+    OpenMeteo --> VectorMap["OpenFreeMap style + MVT<br/>src/api/openfreemap.rs"]
+    JMA --> VectorMap
     Map --> GeoJson[GeoJSON 配布元]
 ```
 

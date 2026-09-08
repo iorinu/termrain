@@ -140,6 +140,9 @@ fn falls_back_to_openstreetmap_for_non_japanese_map_styles() {
 
     provider.set_map_style(MapStyle::OpenStreetMap);
     assert_eq!(*provider.map_style.lock().unwrap(), MapStyle::OpenStreetMap);
+
+    provider.set_map_style(MapStyle::OpenFreeMap);
+    assert_eq!(*provider.map_style.lock().unwrap(), MapStyle::OpenFreeMap);
 }
 
 #[test]

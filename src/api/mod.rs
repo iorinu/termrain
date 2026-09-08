@@ -8,6 +8,7 @@
 pub mod geocoding;
 pub mod jma;
 pub mod open_meteo;
+mod openfreemap;
 
 use anyhow::Result;
 use async_trait::async_trait;

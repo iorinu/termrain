@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   OpenStreetMap Standard, while continuing to read legacy `carto_voyager`
   settings.
 
+### Added
+- Add selectable OpenFreeMap Liberty support by rendering its MapLibre style
+  and vector tiles to raster images before radar compositing.
+
 ## [0.3.4] - 2026-08-11
 
 ### Changed

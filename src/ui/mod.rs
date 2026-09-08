@@ -164,6 +164,7 @@ fn draw_footer(f: &mut Frame, area: Rect, state: &AppState) {
     let map_label = match state.config.radar.map_style {
         crate::config::MapStyle::GsiStd => "GSI",
         crate::config::MapStyle::OpenStreetMap => "OSM",
+        crate::config::MapStyle::OpenFreeMap => "Liberty",
         crate::config::MapStyle::GsiPhoto => "Aerial",
     };
 

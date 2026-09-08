@@ -34,7 +34,8 @@ fn default_config_keeps_the_tokyo_and_radar_defaults() {
 #[test]
 fn map_styles_cycle_and_keep_their_urls_and_cache_keys() {
     assert_eq!(MapStyle::GsiStd.next(), MapStyle::OpenStreetMap);
-    assert_eq!(MapStyle::OpenStreetMap.next(), MapStyle::GsiPhoto);
+    assert_eq!(MapStyle::OpenStreetMap.next(), MapStyle::OpenFreeMap);
+    assert_eq!(MapStyle::OpenFreeMap.next(), MapStyle::GsiPhoto);
     assert_eq!(MapStyle::GsiPhoto.next(), MapStyle::GsiStd);
 
     assert_eq!(
@@ -43,6 +44,11 @@ fn map_styles_cycle_and_keep_their_urls_and_cache_keys() {
     );
     assert_eq!(MapStyle::GsiStd.cache_key(), "gsi_std");
     assert_eq!(MapStyle::OpenStreetMap.cache_key(), "openstreetmap");
+    assert_eq!(MapStyle::OpenFreeMap.cache_key(), "openfreemap_liberty");
+    assert_eq!(
+        MapStyle::OpenFreeMap.tile_url(5, 28, 12),
+        "https://tiles.openfreemap.org/planet/5/28/12.pbf"
+    );
     assert_eq!(MapStyle::GsiPhoto.cache_key(), "gsi_photo");
 }
 

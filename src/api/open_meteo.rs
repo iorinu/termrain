@@ -20,9 +20,11 @@ type MapTileKey = (&'static str, u8, u32, u32);
 
 pub struct OpenMeteo {
     client: reqwest::Client,
-    /// OpenStreetMap 等の地図タイル画像をキャッシュ。スタイル別キー。
+    /// OpenStreetMap/GSI 等の地図画像をキャッシュ。スタイル別キー。
     map_image_cache: Arc<Mutex<HashMap<MapTileKey, Arc<image::RgbaImage>>>>,
-    /// 地図スタイル（外国対応のため OpenStreetMap を使用）
+    /// OpenFreeMap Liberty の style/MVT レンダラー。
+    openfreemap: super::openfreemap::OpenFreeMapRenderer,
+    /// 地図スタイル（外国ではOpenStreetMapまたはOpenFreeMapを使用）
     map_style: Arc<Mutex<crate::config::MapStyle>>,
     /// 天気テキスト等の表示言語
     language: Arc<Mutex<crate::i18n::Language>>,
@@ -39,6 +41,7 @@ impl OpenMeteo {
             .build()
             .expect("reqwest クライアントの構築に失敗");
         Self {
+            openfreemap: super::openfreemap::OpenFreeMapRenderer::new(client.clone()),
             client,
             map_image_cache: Arc::new(Mutex::new(HashMap::new())),
             map_style: Arc::new(Mutex::new(crate::config::MapStyle::OpenStreetMap)),
@@ -67,17 +70,21 @@ impl OpenMeteo {
         if let Some(g) = self.map_image_cache.lock().unwrap().get(&key).cloned() {
             return Ok(g);
         }
-        let url = style.tile_url(z, x, y);
-        let resp = self.client.get(&url).send().await?;
-        let img = if resp.status().is_success() {
-            let bytes = resp.bytes().await?;
-            image::load_from_memory(&bytes)
-                .context("地図タイルデコード失敗")?
-                .to_rgba8()
+        let arc = if style == crate::config::MapStyle::OpenFreeMap {
+            self.openfreemap.render_tile(z, x, y).await?
         } else {
-            image::RgbaImage::from_pixel(256, 256, image::Rgba([240, 240, 240, 255]))
+            let url = style.tile_url(z, x, y);
+            let resp = self.client.get(&url).send().await?;
+            let img = if resp.status().is_success() {
+                let bytes = resp.bytes().await?;
+                image::load_from_memory(&bytes)
+                    .context("地図タイルデコード失敗")?
+                    .to_rgba8()
+            } else {
+                image::RgbaImage::from_pixel(256, 256, image::Rgba([240, 240, 240, 255]))
+            };
+            Arc::new(img)
         };
-        let arc = Arc::new(img);
         self.map_image_cache
             .lock()
             .unwrap()
@@ -348,7 +355,7 @@ impl WeatherProvider for OpenMeteo {
     ) -> Result<RadarGrid> {
         let aspect = aspect.clamp(1.0, 2.4);
         // 雨雲: RainViewer のタイル画像 (世界対応・無料・レート制限ゆるい)
-        // 地図: OpenStreetMap Standard タイル (世界対応)
+        // 地図: OpenStreetMap Standard または OpenFreeMap Liberty (世界対応)
         // Open-Meteo の多地点 precipitation は無料枠のレート制限がきつくて
         // 512地点クエリだとすぐ 429 になるので RainViewer に切り替えた。
         let map_z: u8 = zoom.min(13);
@@ -566,7 +573,7 @@ async fn fetch_radar_tile(client: &reqwest::Client, url: &str) -> Result<Arc<ima
     Ok(Arc::new(img))
 }
 
-/// OpenStreetMap 地図タイルの上に RainViewer 雨雲タイルをアルファ合成する。
+/// 背景地図の上に RainViewer 雨雲タイルをアルファ合成する。
 /// 各 (dx, dy) は中心タイル (cx, cy) からの相対オフセット（-2..=2 × -1..=1 の 5x3）。
 /// 地図と雨雲は別ズーム (map_z >= radar_z) の場合があるので、それぞれ別に lookup する。
 #[allow(clippy::too_many_arguments)]

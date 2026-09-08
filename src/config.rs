@@ -69,6 +69,8 @@ pub enum MapStyle {
     /// OpenStreetMap Standard（世界対応のラスタ地図）
     #[serde(alias = "carto_voyager")]
     OpenStreetMap,
+    /// OpenFreeMap Liberty（MapLibre互換のベクタ地図）
+    OpenFreeMap,
     /// 国土地理院 シームレス航空写真（衛星画像）
     GsiPhoto,
 }
@@ -77,7 +79,8 @@ impl MapStyle {
     pub fn next(self) -> Self {
         match self {
             Self::GsiStd => Self::OpenStreetMap,
-            Self::OpenStreetMap => Self::GsiPhoto,
+            Self::OpenStreetMap => Self::OpenFreeMap,
+            Self::OpenFreeMap => Self::GsiPhoto,
             Self::GsiPhoto => Self::GsiStd,
         }
     }
@@ -85,6 +88,7 @@ impl MapStyle {
         match self {
             Self::GsiStd => "国土地理院 標準",
             Self::OpenStreetMap => "OpenStreetMap (© OpenStreetMap contributors)",
+            Self::OpenFreeMap => "OpenFreeMap Liberty (© OpenMapTiles, © OpenStreetMap)",
             Self::GsiPhoto => "国土地理院 航空写真",
         }
     }
@@ -97,6 +101,9 @@ impl MapStyle {
             Self::OpenStreetMap => {
                 format!("https://tile.openstreetmap.org/{}/{}/{}.png", z, x, y)
             }
+            Self::OpenFreeMap => {
+                format!("https://tiles.openfreemap.org/planet/{}/{}/{}.pbf", z, x, y)
+            }
             Self::GsiPhoto => format!(
                 "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{}/{}/{}.jpg",
                 z, x, y
@@ -107,6 +114,7 @@ impl MapStyle {
         match self {
             Self::GsiStd => "gsi_std",
             Self::OpenStreetMap => "openstreetmap",
+            Self::OpenFreeMap => "openfreemap_liberty",
             Self::GsiPhoto => "gsi_photo",
         }
     }

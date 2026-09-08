@@ -50,6 +50,8 @@ pub struct Jma {
     map_image_cache: Arc<Mutex<HashMap<MapTileKey, Arc<image::RgbaImage>>>>,
     /// 現在の地図スタイル。Arc<Mutex> で外部から動的に切り替え可能。
     map_style: Arc<Mutex<crate::config::MapStyle>>,
+    /// OpenFreeMap Liberty の style/MVT レンダラー。
+    openfreemap: super::openfreemap::OpenFreeMapRenderer,
     /// 表示言語（内部で呼び出す OpenMeteo にも反映する）
     language: Arc<Mutex<crate::i18n::Language>>,
 }
@@ -79,6 +81,7 @@ impl Jma {
             .build()
             .expect("reqwest クライアントの構築に失敗");
         Self {
+            openfreemap: super::openfreemap::OpenFreeMapRenderer::new(client.clone()),
             client,
             tile_cache: Arc::new(Mutex::new(HashMap::new())),
             map_tile_cache: Arc::new(Mutex::new(HashMap::new())),
@@ -136,17 +139,21 @@ impl Jma {
         if let Some(g) = self.map_image_cache.lock().unwrap().get(&key).cloned() {
             return Ok(g);
         }
-        let url = style.tile_url(z, x, y);
-        let resp = self.client.get(&url).send().await?;
-        let img = if resp.status().is_success() {
-            let bytes = resp.bytes().await?;
-            image::load_from_memory(&bytes)
-                .context("地図タイルデコード失敗")?
-                .to_rgba8()
+        let arc = if style == crate::config::MapStyle::OpenFreeMap {
+            self.openfreemap.render_tile(z, x, y).await?
         } else {
-            image::RgbaImage::from_pixel(256, 256, image::Rgba([240, 240, 240, 255]))
+            let url = style.tile_url(z, x, y);
+            let resp = self.client.get(&url).send().await?;
+            let img = if resp.status().is_success() {
+                let bytes = resp.bytes().await?;
+                image::load_from_memory(&bytes)
+                    .context("地図タイルデコード失敗")?
+                    .to_rgba8()
+            } else {
+                image::RgbaImage::from_pixel(256, 256, image::Rgba([240, 240, 240, 255]))
+            };
+            Arc::new(img)
         };
-        let arc = Arc::new(img);
         self.map_image_cache
             .lock()
             .unwrap()
@@ -696,7 +703,7 @@ impl WeatherProvider for Jma {
         );
 
         // 地図と雨雲でズームを分離する。
-        // - 地図 (OpenStreetMap/GSI): z=13 まで実データがある → 高ズームで取れば綺麗
+        // - 地図 (OpenStreetMap/OpenFreeMap/GSI): z=13 まで実データがある → 高ズームで取れば綺麗
         // - 雨雲 (JMA hrpns): z=10 が上限 → それ以上は中心領域をクロップして拡大
         // view 範囲は地図ズームのタイル1枚分に固定 → 自然なズーム表示。
         let map_z: u8 = zoom.min(13);

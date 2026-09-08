@@ -128,10 +128,12 @@ CARTO APIキーを設定可能にする案もあるが、ユーザーごとの�
 
 ## 現在の状態
 
-この文書では原因調査と再現確認だけを記録している。CARTOからOpenStreetMapへ切り替えるコード変更は、別の修正として扱う。
+CARTO Voyagerはデフォルトから外し、OpenStreetMap Standardをデフォルトにした。旧`carto_voyager`設定はOpenStreetMapとして互換読み込みする。見た目の比較用に、OpenFreeMap Libertyも選択可能にした。OpenFreeMapはMapLibre styleとMVTをezuでRGBA画像へ描画してから、既存の雨雲画像合成へ渡す。
 
 - Issue: [iorinu/termrain #17](https://github.com/iorinu/termrain/issues/17)
 - 修正前コードを基準に再現確認済み
+- OpenStreetMap Standardのタイル取得、User-Agent、帰属表示を実装済み
+- OpenFreeMap Libertyのstyle、TileJSON、MVT、glyph/sprite取得を実装済み
 - APIキー値などの秘密情報は取得・記録していない
 
 ## Sources
