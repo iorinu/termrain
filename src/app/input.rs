@@ -146,3 +146,7 @@ fn request_radar(
         tx,
     );
 }
+
+#[cfg(test)]
+#[path = "tests/input.rs"]
+mod tests;
