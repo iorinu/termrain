@@ -20,9 +20,9 @@ type MapTileKey = (&'static str, u8, u32, u32);
 
 pub struct OpenMeteo {
     client: reqwest::Client,
-    /// CARTO Voyager 等のタイル PNG をキャッシュ。スタイル別キー。
+    /// OpenStreetMap 等の地図タイル画像をキャッシュ。スタイル別キー。
     map_image_cache: Arc<Mutex<HashMap<MapTileKey, Arc<image::RgbaImage>>>>,
-    /// 地図スタイル（外国対応のため CARTO のみ実用）
+    /// 地図スタイル（外国対応のため OpenStreetMap を使用）
     map_style: Arc<Mutex<crate::config::MapStyle>>,
     /// 天気テキスト等の表示言語
     language: Arc<Mutex<crate::i18n::Language>>,
@@ -31,14 +31,17 @@ pub struct OpenMeteo {
 impl OpenMeteo {
     pub fn new() -> Self {
         let client = reqwest::Client::builder()
-            .user_agent("termrain/0.1 (+https://github.com/iorinu/termrain)")
+            .user_agent(format!(
+                "termrain/{} (+https://github.com/iorinu/termrain)",
+                env!("CARGO_PKG_VERSION")
+            ))
             .timeout(std::time::Duration::from_secs(20))
             .build()
             .expect("reqwest クライアントの構築に失敗");
         Self {
             client,
             map_image_cache: Arc::new(Mutex::new(HashMap::new())),
-            map_style: Arc::new(Mutex::new(crate::config::MapStyle::CartoVoyager)),
+            map_style: Arc::new(Mutex::new(crate::config::MapStyle::OpenStreetMap)),
             language: Arc::new(Mutex::new(crate::i18n::Language::default())),
         }
     }
@@ -48,10 +51,10 @@ impl OpenMeteo {
     }
 
     pub fn set_map_style(&self, style: crate::config::MapStyle) {
-        // 地理院系は日本限定なので外国では CARTO に fallback
+        // 地理院系は日本限定なので外国では OpenStreetMap に fallback
         let effective = match style {
             crate::config::MapStyle::GsiStd | crate::config::MapStyle::GsiPhoto => {
-                crate::config::MapStyle::CartoVoyager
+                crate::config::MapStyle::OpenStreetMap
             }
             s => s,
         };
@@ -345,7 +348,7 @@ impl WeatherProvider for OpenMeteo {
     ) -> Result<RadarGrid> {
         let aspect = aspect.clamp(1.0, 2.4);
         // 雨雲: RainViewer のタイル画像 (世界対応・無料・レート制限ゆるい)
-        // 地図: CARTO Voyager タイル (世界対応)
+        // 地図: OpenStreetMap Standard タイル (世界対応)
         // Open-Meteo の多地点 precipitation は無料枠のレート制限がきつくて
         // 512地点クエリだとすぐ 429 になるので RainViewer に切り替えた。
         let map_z: u8 = zoom.min(13);
@@ -563,7 +566,7 @@ async fn fetch_radar_tile(client: &reqwest::Client, url: &str) -> Result<Arc<ima
     Ok(Arc::new(img))
 }
 
-/// CARTO 地図タイルの上に RainViewer 雨雲タイルをアルファ合成する。
+/// OpenStreetMap 地図タイルの上に RainViewer 雨雲タイルをアルファ合成する。
 /// 各 (dx, dy) は中心タイル (cx, cy) からの相対オフセット（-2..=2 × -1..=1 の 5x3）。
 /// 地図と雨雲は別ズーム (map_z >= radar_z) の場合があるので、それぞれ別に lookup する。
 #[allow(clippy::too_many_arguments)]

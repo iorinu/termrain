@@ -163,7 +163,7 @@ fn draw_footer(f: &mut Frame, area: Rect, state: &AppState) {
     let play_mark = if state.radar_playing { "▶ " } else { "" };
     let map_label = match state.config.radar.map_style {
         crate::config::MapStyle::GsiStd => "GSI",
-        crate::config::MapStyle::CartoVoyager => "Carto",
+        crate::config::MapStyle::OpenStreetMap => "OSM",
         crate::config::MapStyle::GsiPhoto => "Aerial",
     };
 

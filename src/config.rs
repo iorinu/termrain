@@ -66,8 +66,9 @@ impl Default for UiConfig {
 pub enum MapStyle {
     /// 国土地理院 標準地図（線画、文字くっきり）
     GsiStd,
-    /// CARTO Voyager（モダン、Yahoo/Google 風）
-    CartoVoyager,
+    /// OpenStreetMap Standard（世界対応のラスタ地図）
+    #[serde(alias = "carto_voyager")]
+    OpenStreetMap,
     /// 国土地理院 シームレス航空写真（衛星画像）
     GsiPhoto,
 }
@@ -75,15 +76,15 @@ pub enum MapStyle {
 impl MapStyle {
     pub fn next(self) -> Self {
         match self {
-            Self::GsiStd => Self::CartoVoyager,
-            Self::CartoVoyager => Self::GsiPhoto,
+            Self::GsiStd => Self::OpenStreetMap,
+            Self::OpenStreetMap => Self::GsiPhoto,
             Self::GsiPhoto => Self::GsiStd,
         }
     }
     pub fn label(self) -> &'static str {
         match self {
             Self::GsiStd => "国土地理院 標準",
-            Self::CartoVoyager => "CARTO Voyager (© OSM, © CARTO)",
+            Self::OpenStreetMap => "OpenStreetMap (© OpenStreetMap contributors)",
             Self::GsiPhoto => "国土地理院 航空写真",
         }
     }
@@ -93,10 +94,9 @@ impl MapStyle {
                 "https://cyberjapandata.gsi.go.jp/xyz/std/{}/{}/{}.png",
                 z, x, y
             ),
-            Self::CartoVoyager => format!(
-                "https://basemaps.cartocdn.com/rastertiles/voyager/{}/{}/{}.png",
-                z, x, y
-            ),
+            Self::OpenStreetMap => {
+                format!("https://tile.openstreetmap.org/{}/{}/{}.png", z, x, y)
+            }
             Self::GsiPhoto => format!(
                 "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{}/{}/{}.jpg",
                 z, x, y
@@ -106,7 +106,7 @@ impl MapStyle {
     pub fn cache_key(self) -> &'static str {
         match self {
             Self::GsiStd => "gsi_std",
-            Self::CartoVoyager => "carto_voyager",
+            Self::OpenStreetMap => "openstreetmap",
             Self::GsiPhoto => "gsi_photo",
         }
     }
@@ -122,7 +122,7 @@ pub struct RadarConfig {
 }
 
 fn default_map_style() -> MapStyle {
-    MapStyle::CartoVoyager
+    MapStyle::OpenStreetMap
 }
 
 impl Default for RadarConfig {
@@ -132,7 +132,7 @@ impl Default for RadarConfig {
         // zoom >= 11 は JMA タイルが z=10 までしか無いので、内部でクロップ拡大する。
         Self {
             zoom: 11,
-            map_style: MapStyle::CartoVoyager,
+            map_style: MapStyle::OpenStreetMap,
         }
     }
 }

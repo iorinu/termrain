@@ -26,15 +26,15 @@ fn default_config_keeps_the_tokyo_and_radar_defaults() {
     assert_eq!(config.location.name, "Tokyo");
     assert_eq!(config.location.country, "JP");
     assert_eq!(config.radar.zoom, 11);
-    assert_eq!(config.radar.map_style, MapStyle::CartoVoyager);
+    assert_eq!(config.radar.map_style, MapStyle::OpenStreetMap);
     assert_eq!(config.ui.unit, "metric");
     assert_eq!(config.ui.refresh_interval, 600);
 }
 
 #[test]
 fn map_styles_cycle_and_keep_their_urls_and_cache_keys() {
-    assert_eq!(MapStyle::GsiStd.next(), MapStyle::CartoVoyager);
-    assert_eq!(MapStyle::CartoVoyager.next(), MapStyle::GsiPhoto);
+    assert_eq!(MapStyle::GsiStd.next(), MapStyle::OpenStreetMap);
+    assert_eq!(MapStyle::OpenStreetMap.next(), MapStyle::GsiPhoto);
     assert_eq!(MapStyle::GsiPhoto.next(), MapStyle::GsiStd);
 
     assert_eq!(
@@ -42,8 +42,37 @@ fn map_styles_cycle_and_keep_their_urls_and_cache_keys() {
         "https://cyberjapandata.gsi.go.jp/xyz/std/10/1/2.png"
     );
     assert_eq!(MapStyle::GsiStd.cache_key(), "gsi_std");
-    assert_eq!(MapStyle::CartoVoyager.cache_key(), "carto_voyager");
+    assert_eq!(MapStyle::OpenStreetMap.cache_key(), "openstreetmap");
     assert_eq!(MapStyle::GsiPhoto.cache_key(), "gsi_photo");
+}
+
+#[test]
+fn default_and_legacy_carto_settings_use_openstreetmap() {
+    let default_style = Config::default().radar.map_style;
+    assert_eq!(
+        default_style.label(),
+        "OpenStreetMap (© OpenStreetMap contributors)"
+    );
+    assert_eq!(
+        default_style.tile_url(5, 28, 12),
+        "https://tile.openstreetmap.org/5/28/12.png"
+    );
+    assert_eq!(default_style.cache_key(), "openstreetmap");
+
+    let legacy: Config = toml::from_str(
+        r#"
+            [radar]
+            zoom = 11
+            map_style = "carto_voyager"
+        "#,
+    )
+    .unwrap();
+    assert_eq!(legacy.radar.map_style, default_style);
+    assert!(
+        toml::to_string(&legacy)
+            .unwrap()
+            .contains("map_style = \"open_street_map\"")
+    );
 }
 
 #[test]

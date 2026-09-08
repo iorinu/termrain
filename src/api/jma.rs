@@ -71,7 +71,10 @@ impl Jma {
 impl Jma {
     pub fn new() -> Self {
         let client = reqwest::Client::builder()
-            .user_agent("termrain/0.1 (+https://github.com/iorinu/termrain)")
+            .user_agent(format!(
+                "termrain/{} (+https://github.com/iorinu/termrain)",
+                env!("CARGO_PKG_VERSION")
+            ))
             .timeout(std::time::Duration::from_secs(20))
             .build()
             .expect("reqwest クライアントの構築に失敗");
@@ -81,7 +84,7 @@ impl Jma {
             map_tile_cache: Arc::new(Mutex::new(HashMap::new())),
             rain_image_cache: Arc::new(Mutex::new(HashMap::new())),
             map_image_cache: Arc::new(Mutex::new(HashMap::new())),
-            map_style: Arc::new(Mutex::new(crate::config::MapStyle::CartoVoyager)),
+            map_style: Arc::new(Mutex::new(crate::config::MapStyle::OpenStreetMap)),
             language: Arc::new(Mutex::new(crate::i18n::Language::default())),
         }
     }
@@ -693,7 +696,7 @@ impl WeatherProvider for Jma {
         );
 
         // 地図と雨雲でズームを分離する。
-        // - 地図 (CARTO/GSI): z=13 まで実データがある → 高ズームで取れば綺麗
+        // - 地図 (OpenStreetMap/GSI): z=13 まで実データがある → 高ズームで取れば綺麗
         // - 雨雲 (JMA hrpns): z=10 が上限 → それ以上は中心領域をクロップして拡大
         // view 範囲は地図ズームのタイル1枚分に固定 → 自然なズーム表示。
         let map_z: u8 = zoom.min(13);

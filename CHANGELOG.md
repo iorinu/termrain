@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Replace the retired unauthenticated CARTO Voyager raster basemap with
+  OpenStreetMap Standard, while continuing to read legacy `carto_voyager`
+  settings.
+
 ## [0.3.4] - 2026-08-11
 
 ### Changed

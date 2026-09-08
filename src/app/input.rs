@@ -90,7 +90,7 @@ pub fn handle_event(
         KeyCode::Char('p') => {
             state.radar_playing = !state.radar_playing;
         }
-        // 地図スタイル切替 (GSI → CARTO → 衛星写真 → GSI ...)
+        // 地図スタイル切替 (GSI → OpenStreetMap → 衛星写真 → GSI ...)
         KeyCode::Char('m') | KeyCode::Char('M') => {
             state.config.radar.map_style = state.config.radar.map_style.next();
             provider.set_map_style(state.config.radar.map_style);
