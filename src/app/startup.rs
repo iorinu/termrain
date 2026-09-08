@@ -15,6 +15,12 @@ use crate::api::WeatherProvider;
 use crate::cli::Args;
 use crate::config::Config;
 
+const USER_AGENT: &str = concat!(
+    "termrain/",
+    env!("CARGO_PKG_VERSION"),
+    " (+https://github.com/iorinu/termrain)"
+);
+
 /// TUI 起動前の CLI 前処理。
 ///
 /// 早期終了系のサブコマンド (`--list-city`, `--dump`) を捌いたら `None` を返す。
@@ -69,9 +75,7 @@ pub async fn run_dump(provider: &Arc<dyn WeatherProvider>, config: &Config) -> R
 }
 
 async fn list_city(query: &str, language: crate::i18n::Language) -> Result<()> {
-    let client = reqwest::Client::builder()
-        .user_agent("termrain/0.1")
-        .build()?;
+    let client = reqwest::Client::builder().user_agent(USER_AGENT).build()?;
     let hits = crate::api::geocoding::search_many(&client, query, language, 10).await?;
     if hits.is_empty() {
         eprintln!("No matches for: {query}");
@@ -105,10 +109,7 @@ async fn list_city(query: &str, language: crate::i18n::Language) -> Result<()> {
 }
 
 async fn apply_city_override(config: &mut Config, city: &str) {
-    let client = match reqwest::Client::builder()
-        .user_agent("termrain/0.1")
-        .build()
-    {
+    let client = match reqwest::Client::builder().user_agent(USER_AGENT).build() {
         Ok(c) => c,
         Err(e) => {
             eprintln!("地点検索クライアントの初期化に失敗: {e:#}");

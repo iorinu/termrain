@@ -25,7 +25,7 @@ PR本文には、未認証のラスタタイルに`API key required`の透かし
 
 Issue #17に報告された環境は次のとおり。
 
-- termrain 0.3.4
+- termrain 0.4.0
 - Arch Linux
 - Kitty
 - 座標: `50.186, 15.041`

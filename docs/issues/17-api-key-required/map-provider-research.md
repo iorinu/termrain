@@ -49,8 +49,8 @@ HTTP 200のPNGだが、地図ではなく`API KEY REQUIRED`の透かし画像が
 | 候補 | APIキー | 現在のコードとの互換性 | 主な制約 | 判定 |
 |---|---|---|---|---|
 | CARTO Voyager ラスタ | 必須化。未認証リクエストは透かし画像 | 高い | ラスタ地図が廃止予定 | 採用しない |
-| OpenStreetMap Standard ラスタ | 今回のURL取得では不要 | 高い。既存の画像合成を利用できる | User-Agent、帰属表示、利用量の制約。SLAなし | 当面の第一候補 |
-| OpenFreeMap Liberty | 不要。公式サイトは制限なし・登録不要・APIキー不要と説明 | ezuでMapLibre style/MVTをRGBAへ変換 | ezu依存、style変換・glyph取得・CPU描画が必要 | 選択可能な比較候補 |
+| OpenStreetMap Standard ラスタ | 今回のURL取得では不要 | 高い。既存の画像合成を利用できる | User-Agent、帰属表示、利用量の制約。SLAなし | 選択可能な5種類の一つ |
+| OpenFreeMap Liberty | 不要。公式サイトは制限なし・登録不要・APIキー不要と説明 | ezuでMapLibre style/MVTをRGBAへ変換 | ezu依存、style変換・glyph取得・CPU描画が必要 | デフォルトとして採用 |
 | Esri World Street Map ラスタ | 今回のタイル取得では不要 | 高い。JPEGを既存処理で読める | サービス情報に「成熟サポート中で更新なし」と記載 | 採用しない |
 
 ## CARTO Voyager
@@ -96,7 +96,7 @@ OpenStreetMap FoundationのTile Usage Policyでは、次の条件が示されて
 - `Cache-Control: no-cache`や`Pragma: no-cache`を送らない
 - ポリシー変更やアクセス停止の可能性を前提にする
 
-termrainにはすでに`termrain/0.1 (+https://github.com/iorinu/termrain)`というUser-Agentがある。地図切り替え時には、バージョン表記をどう管理するか確認する。また、`© OpenStreetMap contributors`を表示する場所をUI上で明確にする必要がある。
+termrainは`termrain/0.4.0 (+https://github.com/iorinu/termrain)`形式のUser-Agentを使う。バージョンはCargoのパッケージバージョンから生成する。また、`© OpenStreetMap contributors`を表示する場所をUI上で明確にする必要がある。
 
 OpenStreetMap Wikiの一覧では、標準タイルは寄付で運営される無料サービスとして掲載されているが、同時に各サービスの利用ポリシーを守るよう注意されている。[6]
 

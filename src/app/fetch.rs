@@ -14,6 +14,12 @@ use crate::map::MapData;
 
 use super::state::{AppState, Msg};
 
+const USER_AGENT: &str = concat!(
+    "termrain/",
+    env!("CARGO_PKG_VERSION"),
+    " (+https://github.com/iorinu/termrain)"
+);
+
 pub fn apply_msg(state: &mut AppState, msg: Msg) {
     match msg {
         Msg::Current(c) => state.current = Some(c),
@@ -50,7 +56,7 @@ fn should_apply_radar(request_id: u64, latest_request_id: u64) -> bool {
 pub fn spawn_map_load(tx: mpsc::UnboundedSender<Msg>) {
     tokio::spawn(async move {
         let client = match reqwest::Client::builder()
-            .user_agent("termrain/0.1")
+            .user_agent(USER_AGENT)
             .timeout(std::time::Duration::from_secs(30))
             .build()
         {
