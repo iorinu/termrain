@@ -48,8 +48,14 @@ fn split_radar_area(area: Rect, show_attribution: bool) -> (Rect, Option<Rect>) 
     (chunks[0], Some(chunks[1]))
 }
 
-fn render_carto_attribution(f: &mut Frame, area: Rect) {
-    let paragraph = Paragraph::new("© OpenStreetMap contributors\n© CARTO")
+fn render_carto_attribution(f: &mut Frame, area: Rect, language: crate::i18n::Language) {
+    let label = crate::config::MapStyle::CartoVoyager.label_for_language(language);
+    let attribution = label
+        .split_once('(')
+        .and_then(|(_, value)| value.strip_suffix(')'))
+        .unwrap_or(label)
+        .replace(", ", "\n");
+    let paragraph = Paragraph::new(attribution)
         .style(Style::default().fg(super::theme::SUBTLE).bg(Color::Black))
         .wrap(Wrap { trim: true });
     f.render_widget(paragraph, area);
@@ -174,7 +180,7 @@ fn draw_image_radar(f: &mut Frame, area: Rect, state: &mut AppState) {
         f.render_stateful_widget(image_widget, image_area, protocol);
     }
     if let Some(attribution_area) = attribution_area {
-        render_carto_attribution(f, attribution_area);
+        render_carto_attribution(f, attribution_area, state.config.ui.language);
     }
 }
 
@@ -228,7 +234,7 @@ pub fn draw(f: &mut Frame, area: Rect, state: &mut AppState) {
         )));
         f.render_widget(p, map_area);
         if let Some(attribution_area) = attribution_area {
-            render_carto_attribution(f, attribution_area);
+            render_carto_attribution(f, attribution_area, state.config.ui.language);
         }
         return;
     }
@@ -532,7 +538,7 @@ pub fn draw(f: &mut Frame, area: Rect, state: &mut AppState) {
         f.render_widget(canvas, map_area);
     }
     if let Some(attribution_area) = attribution_area {
-        render_carto_attribution(f, attribution_area);
+        render_carto_attribution(f, attribution_area, state.config.ui.language);
     }
 }
 
