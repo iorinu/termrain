@@ -102,6 +102,7 @@ pub async fn run(args: Args) -> Result<()> {
         show_help: false,
         spinner_frame: 0,
         radar_loading: false,
+        radar_error: None,
         radar_request_id: 0,
         radar_aspect,
         last_error: None,

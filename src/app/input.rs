@@ -92,6 +92,7 @@ pub fn handle_event(
         }
         // 地図スタイル切替 (Liberty → OSM → CARTO → GSI標準 → 航空写真 ...)
         KeyCode::Char('m') | KeyCode::Char('M') => {
+            clear_radar_display_for_style_change(state);
             state.config.radar.map_style = state
                 .config
                 .radar
@@ -140,6 +141,7 @@ fn request_radar(
     provider: Arc<dyn WeatherProvider>,
     tx: mpsc::UnboundedSender<Msg>,
 ) {
+    state.radar_error = None;
     let request_id = state.next_radar_request_id();
     spawn_radar(
         provider,
@@ -149,6 +151,13 @@ fn request_radar(
         state.radar_aspect,
         tx,
     );
+}
+
+fn clear_radar_display_for_style_change(state: &mut AppState) {
+    state.radar = None;
+    state.radar_protocol = None;
+    state.radar_error = None;
+    state.last_error = None;
 }
 
 #[cfg(test)]

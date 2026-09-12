@@ -32,6 +32,7 @@ fn fallback_state() -> AppState {
         show_help: false,
         spinner_frame: 0,
         radar_loading: false,
+        radar_error: None,
         radar_request_id: 0,
         radar_aspect: 1.0,
         last_error: None,

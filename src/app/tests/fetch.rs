@@ -22,6 +22,7 @@ fn state_with_loading_radar(request_id: u64) -> AppState {
         show_help: false,
         spinner_frame: 0,
         radar_loading: true,
+        radar_error: None,
         radar_request_id: request_id,
         radar_aspect: 1.0,
         last_error: None,
@@ -98,6 +99,10 @@ fn applies_the_latest_radar_error_and_clears_loading_state() {
         state.last_error.as_deref(),
         Some("CARTO Voyager requires an API key")
     );
+    assert_eq!(
+        state.radar_error.as_deref(),
+        Some("CARTO Voyager requires an API key")
+    );
     assert!(!state.radar_loading);
 }
 
@@ -114,5 +119,21 @@ fn ignores_a_stale_radar_error_and_keeps_the_latest_request_loading() {
     );
 
     assert!(state.last_error.is_none());
+    assert!(state.radar_error.is_none());
     assert!(state.radar_loading);
+}
+
+#[test]
+fn unrelated_errors_do_not_overwrite_the_latest_radar_error() {
+    let mut state = state_with_loading_radar(7);
+    state.radar_loading = false;
+    state.radar_error = Some("CARTO Voyager requires an API key".into());
+
+    apply_msg(&mut state, Msg::Error("weather request failed".into()));
+
+    assert_eq!(
+        state.radar_error.as_deref(),
+        Some("CARTO Voyager requires an API key")
+    );
+    assert_eq!(state.last_error.as_deref(), Some("weather request failed"));
 }

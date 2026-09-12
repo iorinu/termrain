@@ -38,6 +38,7 @@ pub fn apply_msg(state: &mut AppState, msg: Msg) {
             }
             state.radar = Some(r);
             state.radar_loading = false;
+            state.radar_error = None;
             state.last_error = None;
         }
         Msg::Radar { .. } => {}
@@ -45,6 +46,7 @@ pub fn apply_msg(state: &mut AppState, msg: Msg) {
             if should_apply_radar(request_id, state.radar_request_id) =>
         {
             state.radar_loading = false;
+            state.radar_error = Some(error.clone());
             state.last_error = Some(error);
         }
         Msg::RadarError { .. } => {}

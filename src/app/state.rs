@@ -36,6 +36,8 @@ pub struct AppState {
     /// 雨雲レーダーの取得中フラグ。spawn_radar で true、Msg::Radar 受信で false。
     /// 時刻スクラブやズーム中に「いま処理中」を UI で示すために使う。
     pub radar_loading: bool,
+    /// 最新のレーダー取得に固有のエラー。天気取得エラーで上書きしない。
+    pub radar_error: Option<String>,
     /// 直近に開始したレーダー取得の世代番号。古い非同期結果を破棄するために使う。
     pub radar_request_id: u64,
     /// 合成画像に要求するアスペクト比（横/縦）。端末サイズから計算し、
