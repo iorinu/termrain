@@ -69,6 +69,7 @@ fn ignores_a_stale_radar_result_and_keeps_loading_state() {
 fn applies_the_latest_radar_result_and_clears_loading_state() {
     let mut state = state_with_loading_radar(7);
     state.last_error = Some("old radar error".into());
+    state.radar_error = Some("old radar error".into());
 
     apply_msg(
         &mut state,
@@ -81,6 +82,23 @@ fn applies_the_latest_radar_result_and_clears_loading_state() {
     assert_eq!(state.radar.as_ref().unwrap().data[0][0], 7.0);
     assert!(!state.radar_loading);
     assert!(state.last_error.is_none());
+}
+
+#[test]
+fn radar_success_does_not_clear_an_unrelated_error() {
+    let mut state = state_with_loading_radar(7);
+    state.last_error = Some("weather request failed".into());
+
+    apply_msg(
+        &mut state,
+        Msg::Radar {
+            request_id: 7,
+            grid: radar_grid(7.0),
+        },
+    );
+
+    assert_eq!(state.last_error.as_deref(), Some("weather request failed"));
+    assert!(state.radar_error.is_none());
 }
 
 #[test]

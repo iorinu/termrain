@@ -62,6 +62,29 @@ fn renders_text_fallback_without_an_image_protocol() {
 }
 
 #[test]
+fn shows_an_error_status_instead_of_loading_after_radar_failure() {
+    let backend = TestBackend::new(40, 10);
+    let mut terminal = Terminal::new(backend).unwrap();
+    let mut state = fallback_state();
+    state.radar = None;
+    state.radar_error = Some("radar request failed".into());
+
+    terminal
+        .draw(|frame| draw(frame, frame.area(), &mut state))
+        .unwrap();
+
+    let text: String = terminal
+        .backend()
+        .buffer()
+        .content()
+        .iter()
+        .map(|cell| cell.symbol())
+        .collect();
+    assert!(text.contains("Error"));
+    assert!(!text.contains("Loading"));
+}
+
+#[test]
 fn renders_carto_attribution_in_the_text_fallback() {
     let backend = TestBackend::new(120, 20);
     let mut terminal = Terminal::new(backend).unwrap();
@@ -133,5 +156,27 @@ fn keeps_carto_attribution_visible_in_a_narrow_image_panel() {
         .map(|cell| cell.symbol())
         .collect();
     assert!(text.contains("OpenStreetMap contributors"));
+    assert!(text.contains("CARTO"));
+}
+
+#[test]
+fn keeps_a_compact_carto_attribution_in_a_short_panel() {
+    let backend = TestBackend::new(80, 5);
+    let mut terminal = Terminal::new(backend).unwrap();
+    let mut state = fallback_state();
+    state.config.radar.map_style = crate::config::MapStyle::CartoVoyager;
+
+    terminal
+        .draw(|frame| draw(frame, frame.area(), &mut state))
+        .unwrap();
+
+    let text: String = terminal
+        .backend()
+        .buffer()
+        .content()
+        .iter()
+        .map(|cell| cell.symbol())
+        .collect();
+    assert!(text.contains("OSM contributors"));
     assert!(text.contains("CARTO"));
 }

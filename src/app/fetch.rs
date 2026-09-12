@@ -38,8 +38,10 @@ pub fn apply_msg(state: &mut AppState, msg: Msg) {
             }
             state.radar = Some(r);
             state.radar_loading = false;
+            if state.radar_error.as_deref() == state.last_error.as_deref() {
+                state.last_error = None;
+            }
             state.radar_error = None;
-            state.last_error = None;
         }
         Msg::Radar { .. } => {}
         Msg::RadarError { request_id, error }

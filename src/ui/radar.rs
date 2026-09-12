@@ -33,6 +33,18 @@ use crate::render::color::precipitation_color;
 use ratatui_image::{Resize, StatefulImage};
 
 const CARTO_ATTRIBUTION_HEIGHT: u16 = 3;
+const CARTO_COMPACT_ATTRIBUTION: &str = "© OSM contributors / © CARTO";
+
+fn radar_map_label(style: crate::config::MapStyle, area: Rect) -> String {
+    let label = style.label();
+    if style == crate::config::MapStyle::CartoVoyager
+        && area.height.saturating_sub(2) <= CARTO_ATTRIBUTION_HEIGHT
+    {
+        format!("{label} · {CARTO_COMPACT_ATTRIBUTION}")
+    } else {
+        label.to_string()
+    }
+}
 
 fn split_radar_area(area: Rect, show_attribution: bool) -> (Rect, Option<Rect>) {
     if !show_attribution || area.height <= CARTO_ATTRIBUTION_HEIGHT {
@@ -63,11 +75,18 @@ fn render_carto_attribution(f: &mut Frame, area: Rect, language: crate::i18n::La
 
 fn draw_empty_radar(f: &mut Frame, area: Rect, state: &AppState) {
     let s = crate::i18n::strings(state.config.ui.language);
+    let status = if state.radar_loading {
+        s.loading
+    } else if state.radar_error.is_some() {
+        s.radar_error
+    } else {
+        s.loading
+    };
     let block = Block::default()
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Gray))
         .title(Span::styled(
-            format!("{} ({})", s.radar_title, s.loading),
+            format!("{} ({})", s.radar_title, status),
             Style::default()
                 .fg(Color::Cyan)
                 .add_modifier(Modifier::BOLD),
@@ -121,7 +140,7 @@ fn draw_image_radar(f: &mut Frame, area: Rect, state: &mut AppState) {
         }
     };
     let play = if state.radar_playing { " ▶" } else { "" };
-    let map_label = state.config.radar.map_style.label();
+    let map_label = radar_map_label(state.config.radar.map_style, area);
     let loading_mark = if state.radar_loading {
         format!("{} ", state.spinner())
     } else {
@@ -209,7 +228,7 @@ pub fn draw(f: &mut Frame, area: Rect, state: &mut AppState) {
         .iter()
         .flat_map(|r| r.iter().copied())
         .fold(0.0_f64, f64::max);
-    let map_label = state.config.radar.map_style.label();
+    let map_label = radar_map_label(state.config.radar.map_style, area);
     let title = format!(
         "{}  {}  max {:.1}mm/h  [{}]",
         s.radar_title,
