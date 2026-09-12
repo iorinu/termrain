@@ -131,6 +131,29 @@ impl MapStyle {
             ),
         }
     }
+
+    /// CARTO Voyagerを使うときだけ、APIキーをURLへ追加する。
+    ///
+    /// キーはCARTOの仕様上クエリパラメータで送る必要があるが、他の
+    /// 地図プロバイダーへ誤って伝播しないよう、このメソッド内で限定する。
+    pub fn tile_url_with_carto_api_key(
+        self,
+        z: u8,
+        x: u32,
+        y: u32,
+        carto_api_key: Option<&str>,
+    ) -> String {
+        let url = self.tile_url(z, x, y);
+        let Some(key) = carto_api_key.filter(|key| !key.trim().is_empty()) else {
+            return url;
+        };
+        if self == Self::CartoVoyager {
+            format!("{url}?key={}", urlencoding::encode(key))
+        } else {
+            url
+        }
+    }
+
     pub fn cache_key(self) -> &'static str {
         match self {
             Self::GsiStd => "gsi_std",
@@ -152,6 +175,9 @@ pub struct RadarConfig {
     /// OpenFreeMap Liberty の道路幅倍率。0.7 なら公式styleの70%になる。
     #[serde(default = "default_open_free_map_road_scale")]
     pub open_free_map_road_scale: f64,
+    /// CARTO Voyager用APIキー。未設定ならCARTOへリクエストしない。
+    #[serde(default)]
+    pub carto_api_key: Option<String>,
 }
 
 pub const DEFAULT_OPEN_FREE_MAP_ROAD_SCALE: f64 = 0.7;
@@ -173,6 +199,7 @@ impl Default for RadarConfig {
             zoom: 11,
             map_style: MapStyle::OpenFreeMap,
             open_free_map_road_scale: default_open_free_map_road_scale(),
+            carto_api_key: None,
         }
     }
 }
