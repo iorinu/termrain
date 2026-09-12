@@ -58,3 +58,25 @@ fn renders_text_fallback_without_an_image_protocol() {
         .collect();
     assert!(text.contains("Radar"));
 }
+
+#[test]
+fn renders_carto_attribution_in_the_text_fallback() {
+    let backend = TestBackend::new(120, 20);
+    let mut terminal = Terminal::new(backend).unwrap();
+    let mut state = fallback_state();
+    state.config.radar.map_style = crate::config::MapStyle::CartoVoyager;
+
+    terminal
+        .draw(|frame| draw(frame, frame.area(), &mut state))
+        .unwrap();
+
+    let text: String = terminal
+        .backend()
+        .buffer()
+        .content()
+        .iter()
+        .map(|cell| cell.symbol())
+        .collect();
+    assert!(text.contains("OpenStreetMap contributors"));
+    assert!(text.contains("CARTO"));
+}

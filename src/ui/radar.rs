@@ -69,7 +69,11 @@ fn draw_image_radar(f: &mut Frame, area: Rect, state: &mut AppState) {
         }
     };
     let play = if state.radar_playing { " ▶" } else { "" };
-    let map_attrib = state.config.radar.map_style.label();
+    let map_attrib = state
+        .config
+        .radar
+        .map_style
+        .label_for_language(state.config.ui.language);
     let loading_mark = if state.radar_loading {
         format!("{} ", state.spinner())
     } else {
@@ -157,11 +161,17 @@ pub fn draw(f: &mut Frame, area: Rect, state: &mut AppState) {
         .iter()
         .flat_map(|r| r.iter().copied())
         .fold(0.0_f64, f64::max);
+    let map_attrib = state
+        .config
+        .radar
+        .map_style
+        .label_for_language(state.config.ui.language);
     let title = format!(
-        "{}  {}  max {:.1}mm/h",
+        "{}  {}  max {:.1}mm/h  [{}]",
         s.radar_title,
         grid.observed_at.format("%m/%d %H:%M"),
-        max_mmh
+        max_mmh,
+        map_attrib,
     );
 
     // titled_block と同じ見た目だが、bg を黒に上書き

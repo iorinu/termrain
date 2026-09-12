@@ -1,4 +1,5 @@
 use super::*;
+use crate::i18n::Language;
 use std::ffi::OsString;
 use std::sync::Mutex;
 
@@ -91,6 +92,15 @@ fn map_styles_cycle_and_keep_their_urls_and_cache_keys() {
         "https://tiles.openfreemap.org/planet/5/28/12.pbf"
     );
     assert_eq!(MapStyle::GsiPhoto.cache_key(), "gsi_photo");
+}
+
+#[test]
+fn carto_label_keeps_both_required_attributions_in_each_language() {
+    for language in [Language::English, Language::Japanese] {
+        let label = MapStyle::CartoVoyager.label_for_language(language);
+        assert!(label.contains("© OpenStreetMap contributors"));
+        assert!(label.contains("© CARTO"));
+    }
 }
 
 #[test]

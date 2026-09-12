@@ -96,6 +96,14 @@ impl MapStyle {
         }
     }
 
+    /// 表示言語を考慮した地図ラベル。CARTOは利用規約上必要な帰属を含める。
+    pub fn label_for_language(self, _language: crate::i18n::Language) -> &'static str {
+        match self {
+            Self::CartoVoyager => "CARTO Voyager (© OpenStreetMap contributors, © CARTO)",
+            _ => self.label(),
+        }
+    }
+
     /// 国土地理院の地図は日本国内だけで使える。
     pub fn effective_for_country(self, country: &str) -> Self {
         if !country.eq_ignore_ascii_case("JP") && matches!(self, Self::GsiStd | Self::GsiPhoto) {
