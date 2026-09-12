@@ -7,6 +7,8 @@
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
+use std::fs::{File, OpenOptions};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -277,12 +279,30 @@ impl Config {
             std::fs::create_dir_all(parent)?;
         }
         let text = toml::to_string_pretty(self)?;
-        std::fs::write(&path, text)
+        if path.exists() {
+            set_owner_only_permissions(&path)
+                .with_context(|| format!("設定ファイル権限変更: {}", path.display()))?;
+        }
+        let mut file = open_config_file(&path)
+            .with_context(|| format!("設定ファイル書き込み: {}", path.display()))?;
+        file.write_all(text.as_bytes())
             .with_context(|| format!("設定ファイル書き込み: {}", path.display()))?;
         set_owner_only_permissions(&path)
             .with_context(|| format!("設定ファイル権限変更: {}", path.display()))?;
         Ok(())
     }
+}
+
+fn open_config_file(path: &Path) -> Result<File> {
+    let mut options = OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+
+        options.mode(0o600);
+    }
+    Ok(options.open(path)?)
 }
 
 /// 設定ファイルを所有者だけが読み書きできる権限にする。

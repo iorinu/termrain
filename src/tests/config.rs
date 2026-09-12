@@ -215,3 +215,26 @@ fn saves_and_loads_config_from_the_xdg_file_path() {
     drop(previous);
     std::fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+fn opens_new_config_file_with_owner_only_permissions() {
+    let path = std::env::temp_dir().join(format!(
+        "termrain-config-permissions-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+
+    let file = open_config_file(&path).unwrap();
+    drop(file);
+
+    #[cfg(unix)]
+    assert_eq!(
+        std::fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+        0o600
+    );
+
+    std::fs::remove_file(path).unwrap();
+}
