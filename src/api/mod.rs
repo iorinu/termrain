@@ -121,6 +121,9 @@ pub trait WeatherProvider: Send + Sync {
     /// 背景地図スタイルの切替（JMA だけが対応、Open-Meteo は無視）
     fn set_map_style(&self, _style: crate::config::MapStyle) {}
 
+    /// CARTO Voyager用APIキーの設定。
+    fn set_carto_api_key(&self, _api_key: Option<String>) {}
+
     /// OpenFreeMap Liberty の道路幅倍率を設定する。
     fn set_open_free_map_road_scale(&self, _scale: f64) {}
 
@@ -132,6 +135,35 @@ pub trait WeatherProvider: Send + Sync {
     fn radar_offset_range(&self) -> (i32, i32) {
         (-6, 12)
     }
+}
+
+/// 地図スタイルに応じたタイルURLを生成する。
+///
+/// CARTO Voyagerだけは未認証リクエストを送らない。URL生成と送信前の
+/// 検証を共通化することで、JMAとOpen-Meteoの挙動を揃える。
+pub(crate) fn ensure_map_tile_access(
+    style: crate::config::MapStyle,
+    carto_api_key: Option<&str>,
+    language: crate::i18n::Language,
+) -> Result<()> {
+    if style == crate::config::MapStyle::CartoVoyager
+        && carto_api_key.is_none_or(|key| key.trim().is_empty())
+    {
+        anyhow::bail!(crate::i18n::strings(language).carto_api_key_required);
+    }
+    Ok(())
+}
+
+pub(crate) fn build_map_tile_url(
+    style: crate::config::MapStyle,
+    z: u8,
+    x: u32,
+    y: u32,
+    carto_api_key: Option<&str>,
+    language: crate::i18n::Language,
+) -> Result<String> {
+    ensure_map_tile_access(style, carto_api_key, language)?;
+    Ok(style.tile_url_with_carto_api_key(z, x, y, carto_api_key))
 }
 
 /// 国コードからプロバイダーを選択。

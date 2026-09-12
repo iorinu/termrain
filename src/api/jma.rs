@@ -50,6 +50,8 @@ pub struct Jma {
     map_image_cache: Arc<Mutex<HashMap<MapTileKey, Arc<image::RgbaImage>>>>,
     /// 現在の地図スタイル。Arc<Mutex> で外部から動的に切り替え可能。
     map_style: Arc<Mutex<crate::config::MapStyle>>,
+    /// CARTO Voyager用APIキー。ログやキャッシュ識別子には含めない。
+    carto_api_key: Arc<Mutex<Option<String>>>,
     /// OpenFreeMap Liberty の style/MVT レンダラー。
     openfreemap: super::openfreemap::OpenFreeMapRenderer,
     /// 表示言語（内部で呼び出す OpenMeteo にも反映する）
@@ -59,6 +61,9 @@ pub struct Jma {
 impl Jma {
     pub fn set_map_style(&self, style: crate::config::MapStyle) {
         *self.map_style.lock().unwrap() = style;
+    }
+    pub fn set_carto_api_key(&self, api_key: Option<String>) {
+        *self.carto_api_key.lock().unwrap() = api_key;
     }
     pub fn set_language(&self, lang: crate::i18n::Language) {
         *self.language.lock().unwrap() = lang;
@@ -88,6 +93,7 @@ impl Jma {
             rain_image_cache: Arc::new(Mutex::new(HashMap::new())),
             map_image_cache: Arc::new(Mutex::new(HashMap::new())),
             map_style: Arc::new(Mutex::new(crate::config::MapStyle::OpenFreeMap)),
+            carto_api_key: Arc::new(Mutex::new(None)),
             language: Arc::new(Mutex::new(crate::i18n::Language::default())),
         }
     }
@@ -135,6 +141,9 @@ impl Jma {
     /// キャッシュは style 別にキーを分けるので、スタイル切り替え後の再取得が高速。
     async fn fetch_map_image(&self, z: u8, x: u32, y: u32) -> Result<Arc<image::RgbaImage>> {
         let style = *self.map_style.lock().unwrap();
+        let carto_api_key = self.carto_api_key.lock().unwrap().clone();
+        let language = *self.language.lock().unwrap();
+        super::ensure_map_tile_access(style, carto_api_key.as_deref(), language)?;
         let key = (style.cache_key(), z, x, y);
         if let Some(g) = self.map_image_cache.lock().unwrap().get(&key).cloned() {
             return Ok(g);
@@ -142,7 +151,8 @@ impl Jma {
         let arc = if style == crate::config::MapStyle::OpenFreeMap {
             self.openfreemap.render_tile(z, x, y).await?
         } else {
-            let url = style.tile_url(z, x, y);
+            let url =
+                super::build_map_tile_url(style, z, x, y, carto_api_key.as_deref(), language)?;
             let resp = self.client.get(&url).send().await?;
             let img = if resp.status().is_success() {
                 let bytes = resp.bytes().await?;
@@ -628,6 +638,10 @@ impl WeatherProvider for Jma {
         Self::set_map_style(self, style);
     }
 
+    fn set_carto_api_key(&self, api_key: Option<String>) {
+        Self::set_carto_api_key(self, api_key);
+    }
+
     fn set_open_free_map_road_scale(&self, scale: f64) {
         self.openfreemap.set_road_scale(scale);
     }
@@ -644,6 +658,12 @@ impl WeatherProvider for Jma {
         time_offset: i32,
         aspect: f64,
     ) -> Result<RadarGrid> {
+        let style = *self.map_style.lock().unwrap();
+        let carto_api_key = self.carto_api_key.lock().unwrap().clone();
+        let language = *self.language.lock().unwrap();
+        // 未認証のCARTOリクエストだけでなく、レーダー用の不要な通信も開始前に止める。
+        super::ensure_map_tile_access(style, carto_api_key.as_deref(), language)?;
+
         // 横方向のタイル取得範囲 (dx) は ±2 固定なので、view が
         // はみ出さない範囲にアスペクト比をクランプする
         let aspect = aspect.clamp(1.0, 2.4);

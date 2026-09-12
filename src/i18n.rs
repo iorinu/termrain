@@ -45,6 +45,7 @@ pub struct Strings {
     pub fetching: &'static str,
     pub no_data: &'static str,
     pub no_precip: &'static str,
+    pub carto_api_key_required: &'static str,
     // Footer keys
     pub key_help: &'static str,
     pub key_quit: &'static str,
@@ -98,6 +99,7 @@ const EN: Strings = Strings {
     fetching: "Fetching…",
     no_data: "No data",
     no_precip: "No rain",
+    carto_api_key_required: "CARTO Voyager requires an API key. Check [radar].carto_api_key in the configuration file.",
 
     key_help: "Help",
     key_quit: "Quit",
@@ -151,6 +153,7 @@ const JA: Strings = Strings {
     fetching: "取得中…",
     no_data: "データなし",
     no_precip: "降水なし",
+    carto_api_key_required: "CARTO VoyagerにはAPIキーが必要です。設定ファイルの[radar].carto_api_keyを確認してください。",
 
     key_help: "ヘルプ",
     key_quit: "終了",

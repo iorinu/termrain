@@ -149,6 +149,35 @@ fn falls_back_to_openfreemap_for_non_japanese_gsi_styles() {
 }
 
 #[test]
+fn stores_the_optional_carto_api_key_on_the_provider() {
+    let provider = OpenMeteo::new();
+    assert!(provider.carto_api_key.lock().unwrap().is_none());
+
+    provider.set_carto_api_key(Some("test-key".into()));
+
+    assert_eq!(
+        provider.carto_api_key.lock().unwrap().as_deref(),
+        Some("test-key")
+    );
+}
+
+#[tokio::test]
+async fn refuses_carto_radar_without_an_api_key_before_network_access() {
+    let provider = OpenMeteo::new();
+    provider.set_map_style(MapStyle::CartoVoyager);
+
+    let error = provider
+        .radar(48.8566, 2.3522, 7, 0, 1.0)
+        .await
+        .unwrap_err();
+
+    assert_eq!(
+        error.to_string(),
+        "CARTO Voyager requires an API key. Check [radar].carto_api_key in the configuration file."
+    );
+}
+
+#[test]
 fn exposes_the_rainviewer_supported_offset_range() {
     assert_eq!(OpenMeteo::new().radar_offset_range(), (-12, 0));
 }

@@ -58,6 +58,7 @@ pub async fn run(args: Args) -> Result<()> {
         .effective_for_country(&config.location.country);
     // 設定で指定された地図スタイル・言語をプロバイダーに反映
     provider.set_map_style(config.radar.map_style);
+    provider.set_carto_api_key(config.radar.carto_api_key.clone());
     provider.set_open_free_map_road_scale(config.radar.open_free_map_road_scale);
     provider.set_language(config.ui.language);
 

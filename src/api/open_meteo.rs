@@ -26,6 +26,8 @@ pub struct OpenMeteo {
     openfreemap: super::openfreemap::OpenFreeMapRenderer,
     /// 地図スタイル（外国ではOpenFreeMapまたは旧設定のOpenStreetMapを使用）
     map_style: Arc<Mutex<crate::config::MapStyle>>,
+    /// CARTO Voyager用APIキー。ログやキャッシュ識別子には含めない。
+    carto_api_key: Arc<Mutex<Option<String>>>,
     /// 天気テキスト等の表示言語
     language: Arc<Mutex<crate::i18n::Language>>,
 }
@@ -45,6 +47,7 @@ impl OpenMeteo {
             client,
             map_image_cache: Arc::new(Mutex::new(HashMap::new())),
             map_style: Arc::new(Mutex::new(crate::config::MapStyle::OpenFreeMap)),
+            carto_api_key: Arc::new(Mutex::new(None)),
             language: Arc::new(Mutex::new(crate::i18n::Language::default())),
         }
     }
@@ -64,12 +67,19 @@ impl OpenMeteo {
         *self.map_style.lock().unwrap() = effective;
     }
 
+    pub fn set_carto_api_key(&self, api_key: Option<String>) {
+        *self.carto_api_key.lock().unwrap() = api_key;
+    }
+
     pub fn set_open_free_map_road_scale(&self, scale: f64) {
         self.openfreemap.set_road_scale(scale);
     }
 
     async fn fetch_map_image(&self, z: u8, x: u32, y: u32) -> Result<Arc<image::RgbaImage>> {
         let style = *self.map_style.lock().unwrap();
+        let carto_api_key = self.carto_api_key.lock().unwrap().clone();
+        let language = *self.language.lock().unwrap();
+        super::ensure_map_tile_access(style, carto_api_key.as_deref(), language)?;
         let key = (style.cache_key(), z, x, y);
         if let Some(g) = self.map_image_cache.lock().unwrap().get(&key).cloned() {
             return Ok(g);
@@ -77,7 +87,8 @@ impl OpenMeteo {
         let arc = if style == crate::config::MapStyle::OpenFreeMap {
             self.openfreemap.render_tile(z, x, y).await?
         } else {
-            let url = style.tile_url(z, x, y);
+            let url =
+                super::build_map_tile_url(style, z, x, y, carto_api_key.as_deref(), language)?;
             let resp = self.client.get(&url).send().await?;
             let img = if resp.status().is_success() {
                 let bytes = resp.bytes().await?;
@@ -357,6 +368,12 @@ impl WeatherProvider for OpenMeteo {
         time_offset: i32,
         aspect: f64,
     ) -> Result<RadarGrid> {
+        let style = *self.map_style.lock().unwrap();
+        let carto_api_key = self.carto_api_key.lock().unwrap().clone();
+        let language = *self.language.lock().unwrap();
+        // 地図タイル取得前にキーを検証し、未認証のCARTOアクセスを発生させない。
+        super::ensure_map_tile_access(style, carto_api_key.as_deref(), language)?;
+
         let aspect = aspect.clamp(1.0, 2.4);
         // 雨雲: RainViewer のタイル画像 (世界対応・無料・レート制限ゆるい)
         // 地図: OpenFreeMap Liberty / OpenStreetMap / CARTO Voyager (世界対応)
@@ -526,6 +543,10 @@ impl WeatherProvider for OpenMeteo {
 
     fn set_map_style(&self, style: crate::config::MapStyle) {
         Self::set_map_style(self, style);
+    }
+
+    fn set_carto_api_key(&self, api_key: Option<String>) {
+        Self::set_carto_api_key(self, api_key);
     }
 
     fn set_open_free_map_road_scale(&self, scale: f64) {
