@@ -68,7 +68,7 @@ pub enum MapStyle {
     GsiStd,
     /// OpenStreetMap Standard（世界対応のラスタ地図）
     OpenStreetMap,
-    /// CARTO Voyager（現在はAPIキー要求画像が返る）
+    /// CARTO Voyager（APIキーを設定した場合に利用可能）
     CartoVoyager,
     /// OpenFreeMap Liberty（MapLibre互換のベクタ地図）
     OpenFreeMap,
