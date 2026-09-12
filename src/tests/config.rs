@@ -1,6 +1,8 @@
 use super::*;
 use crate::i18n::Language;
 use std::ffi::OsString;
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 use std::sync::Mutex;
 
 static ENV_LOCK: Mutex<()> = Mutex::new(());
@@ -200,6 +202,15 @@ fn saves_and_loads_config_from_the_xdg_file_path() {
     assert_eq!(loaded.location.longitude, original.location.longitude);
     assert_eq!(loaded.radar.map_style, original.radar.map_style);
     assert!(Config::path().unwrap().is_file());
+    #[cfg(unix)]
+    assert_eq!(
+        std::fs::metadata(Config::path().unwrap())
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o777,
+        0o600
+    );
 
     drop(previous);
     std::fs::remove_dir_all(root).unwrap();

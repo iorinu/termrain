@@ -7,7 +7,7 @@
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
@@ -243,6 +243,18 @@ impl Config {
                 .with_context(|| format!("設定ファイル読込: {}", path.display()))?;
             let cfg: Config = toml::from_str(&text)
                 .with_context(|| format!("設定ファイルのTOMLパース: {}", path.display()))?;
+            if cfg
+                .radar
+                .carto_api_key
+                .as_deref()
+                .is_some_and(|key| !key.trim().is_empty())
+                && let Err(error) = set_owner_only_permissions(&path)
+            {
+                tracing::warn!(
+                    "APIキーを含む設定ファイルの権限変更に失敗 {}: {error:#}",
+                    path.display()
+                );
+            }
             return Ok(cfg);
         }
         // 初回起動: デフォルト設定をファイルに書き出して案内する
@@ -267,8 +279,28 @@ impl Config {
         let text = toml::to_string_pretty(self)?;
         std::fs::write(&path, text)
             .with_context(|| format!("設定ファイル書き込み: {}", path.display()))?;
+        set_owner_only_permissions(&path)
+            .with_context(|| format!("設定ファイル権限変更: {}", path.display()))?;
         Ok(())
     }
+}
+
+/// 設定ファイルを所有者だけが読み書きできる権限にする。
+/// WindowsではユーザープロファイルのACLに任せるため、追加操作は行わない。
+fn set_owner_only_permissions(path: &Path) -> Result<()> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        let mut permissions = std::fs::metadata(path)?.permissions();
+        permissions.set_mode(0o600);
+        std::fs::set_permissions(path, permissions)?;
+    }
+
+    #[cfg(not(unix))]
+    let _ = path;
+
+    Ok(())
 }
 
 /// キャッシュディレクトリ（XDG 準拠）。
