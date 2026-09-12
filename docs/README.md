@@ -9,7 +9,7 @@ termrain を開発・保守するための資料です。利用方法はルー�
 | [AI 実行タスク](ai-tasks.md) | 曖昧な依頼でも AI が安全に実行できる task ID、scope、完了条件、依存関係 |
 | [開発自動化と AI 駆動開発](development-automation.md) | ローカル Codex レビュー、GitHub Actions、Dependabot、セキュリティ上の境界、日常の開発フロー |
 | [Issue調査](issues/17-api-key-required/README.md) | Issue #17のCARTO背景地図でAPIキー要求が表示される原因と再現確認 |
-| [CARTO APIキー対応設計](issues/21-carto-api-key/README.md) | Issue #21の認証済みCARTO Voyager対応、利用制限、設定・秘密情報の扱い |
+| [CARTO APIキー対応調査・実装方針](issues/21-carto-api-key/research-and-implementation-plan.md) | Issue #21の認証済みCARTO Voyager対応、利用制限、設定・秘密情報の扱い |
 | [スクリーンショット](screenshots/README.md) | README / PR 用のスクリーンショット管理 |
 | [Homebrew Formula](homebrew/termrain.rb) | tap で配布する Formula の参照コピー |
 
