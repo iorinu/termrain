@@ -90,7 +90,7 @@ impl MapStyle {
         match self {
             Self::GsiStd => "国土地理院 標準",
             Self::OpenStreetMap => "OpenStreetMap (© OpenStreetMap contributors)",
-            Self::CartoVoyager => "CARTO Voyager (API key required)",
+            Self::CartoVoyager => "CARTO Voyager",
             Self::OpenFreeMap => "OpenFreeMap Liberty (© OpenMapTiles, © OpenStreetMap)",
             Self::GsiPhoto => "国土地理院 航空写真",
         }
