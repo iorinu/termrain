@@ -166,6 +166,18 @@ pub(crate) fn build_map_tile_url(
     Ok(style.tile_url_with_carto_api_key(z, x, y, carto_api_key))
 }
 
+/// CARTO のAPIキーを含むURLが、HTTPクライアントのエラーへ混ざらないようにする。
+pub(crate) fn sanitize_carto_tile_error(
+    style: crate::config::MapStyle,
+    error: anyhow::Error,
+) -> anyhow::Error {
+    if style == crate::config::MapStyle::CartoVoyager {
+        anyhow::anyhow!("CARTO Voyager tile request failed")
+    } else {
+        error
+    }
+}
+
 /// 国コードからプロバイダーを選択。
 /// "JP" → 気象庁、それ以外 → Open-Meteo。
 pub fn select_provider(country: &str, force_jma: bool) -> Box<dyn WeatherProvider> {

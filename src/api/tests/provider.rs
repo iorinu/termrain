@@ -65,3 +65,16 @@ fn rejects_carto_tiles_without_a_non_blank_api_key() {
     );
     assert!(!error.to_string().contains("test-key"));
 }
+
+#[test]
+fn redacts_carto_tile_errors_before_they_reach_logs() {
+    let error = sanitize_carto_tile_error(
+        MapStyle::CartoVoyager,
+        anyhow::anyhow!(
+            "error reading response body for url (https://basemaps.cartocdn.com/?key=secret-key)"
+        ),
+    );
+
+    assert_eq!(error.to_string(), "CARTO Voyager tile request failed");
+    assert!(!error.to_string().contains("secret-key"));
+}

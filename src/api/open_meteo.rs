@@ -89,15 +89,17 @@ impl OpenMeteo {
         } else {
             let url =
                 super::build_map_tile_url(style, z, x, y, carto_api_key.as_deref(), language)?;
-            let resp = self.client.get(&url).send().await.map_err(|error| {
-                if style == crate::config::MapStyle::CartoVoyager {
-                    anyhow::anyhow!("CARTO Voyager tile request failed")
-                } else {
-                    anyhow::Error::new(error)
-                }
-            })?;
+            let resp = self
+                .client
+                .get(&url)
+                .send()
+                .await
+                .map_err(|error| super::sanitize_carto_tile_error(style, error.into()))?;
             let img = if resp.status().is_success() {
-                let bytes = resp.bytes().await?;
+                let bytes = resp
+                    .bytes()
+                    .await
+                    .map_err(|error| super::sanitize_carto_tile_error(style, error.into()))?;
                 image::load_from_memory(&bytes)
                     .context("地図タイルデコード失敗")?
                     .to_rgba8()
