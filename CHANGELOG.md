@@ -23,6 +23,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Add optional authenticated access to CARTO Voyager through
+  `[radar].carto_api_key`. OpenFreeMap Liberty remains the default, and the
+  CARTO key is used only for CARTO tile requests.
+- Show CARTO and OpenStreetMap attribution in the radar panel and display a
+  localized warning instead of sending unauthenticated CARTO requests.
+- Save the termrain configuration with owner-only permissions on Unix-like
+  systems.
+
 ## [0.3.4] - 2026-08-11
 
 ### Changed

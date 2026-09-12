@@ -189,9 +189,26 @@ language = "english"     # english / japanese
 zoom = 11                # 6 (広域 ≒ 130km) 〜 13 (狭域 ≒ 4km)
 map_style = "open_free_map"    # open_free_map / open_street_map / carto_voyager / gsi_std / gsi_photo
 open_free_map_road_scale = 0.7 # 0.1〜2.0。小さい値ほどLibertyの道路が細くなる
+# carto_api_key = "YOUR_KEY"    # map_style = "carto_voyager" の場合だけ必要
 ```
 
 CLI 引数 `--save` で現在の起動引数をこのファイルに書き込めます。
+
+デフォルトはOpenFreeMap Libertyで、CARTO APIキーは必要ありません。CARTO
+Voyagerを使う場合は、`map_style = "carto_voyager"` と
+`[radar].carto_api_key` に自分で取得したキーを設定してください。キーは
+[CARTOのbasemap APIキー申請ページ](https://carto.com/basemaps/apikey)から取得できます。
+
+キーはCARTO Voyagerの地図タイルへのリクエストにだけ送られます。ログ、エラー
+メッセージ、キャッシュキー、ドキュメントには含めません。キーを共有したり、
+共有dotfilesへこの設定ファイルを実キー付きでコミットしたりしないでください。
+Unix系ではtermrainが設定ファイルを所有者だけが読み書きできる`0600`で保存します。
+WindowsではユーザープロファイルのACLで保護してください。
+
+CARTOは月500万タイルリクエストの無料上限を案内していますが、帰属表示と
+[Basemap Terms](https://carto.com/legal/basemap-terms)が適用されます。ラスタ
+basemapはレガシーサービスで、CARTOは新規アプリにベクタbasemapを推奨している
+ため、Voyagerはデフォルトではなく明示的な選択肢として扱います。
 
 
 ## キャッシュ
@@ -212,7 +229,7 @@ rm -rf ~/.cache/termrain
 - **気象庁ナウキャスト** (雨雲レーダー、日本): <https://www.jma.go.jp/>
 - **国土地理院** (地図タイル、日本): <https://maps.gsi.go.jp/>
 - **OpenStreetMap Standard** (地図タイル、世界): <https://www.openstreetmap.org/copyright>
-- **CARTO Voyager** (旧地図タイル、現在はAPIキー要求画像を返す): <https://carto.com/basemaps>
+- **CARTO Voyager** (旧地図タイル、選択時はAPIキーが必要): <https://carto.com/basemaps>
 - **OpenFreeMap Liberty** (ベクタ地図タイル、世界): <https://openfreemap.org/>
 - **Open-Meteo** (海外の天気予報、Geocoding): <https://open-meteo.com/>
 - **RainViewer** (海外の雨雲レーダータイル): <https://www.rainviewer.com/>
