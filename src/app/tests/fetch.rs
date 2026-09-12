@@ -67,6 +67,7 @@ fn ignores_a_stale_radar_result_and_keeps_loading_state() {
 #[test]
 fn applies_the_latest_radar_result_and_clears_loading_state() {
     let mut state = state_with_loading_radar(7);
+    state.last_error = Some("old radar error".into());
 
     apply_msg(
         &mut state,
@@ -78,4 +79,40 @@ fn applies_the_latest_radar_result_and_clears_loading_state() {
 
     assert_eq!(state.radar.as_ref().unwrap().data[0][0], 7.0);
     assert!(!state.radar_loading);
+    assert!(state.last_error.is_none());
+}
+
+#[test]
+fn applies_the_latest_radar_error_and_clears_loading_state() {
+    let mut state = state_with_loading_radar(7);
+
+    apply_msg(
+        &mut state,
+        Msg::RadarError {
+            request_id: 7,
+            error: "CARTO Voyager requires an API key".into(),
+        },
+    );
+
+    assert_eq!(
+        state.last_error.as_deref(),
+        Some("CARTO Voyager requires an API key")
+    );
+    assert!(!state.radar_loading);
+}
+
+#[test]
+fn ignores_a_stale_radar_error_and_keeps_the_latest_request_loading() {
+    let mut state = state_with_loading_radar(7);
+
+    apply_msg(
+        &mut state,
+        Msg::RadarError {
+            request_id: 6,
+            error: "stale error".into(),
+        },
+    );
+
+    assert!(state.last_error.is_none());
+    assert!(state.radar_loading);
 }

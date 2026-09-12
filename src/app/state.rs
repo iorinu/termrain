@@ -76,6 +76,10 @@ pub enum Msg {
         request_id: u64,
         grid: RadarGrid,
     },
+    RadarError {
+        request_id: u64,
+        error: String,
+    },
     Map(Arc<MapData>),
     Error(String),
     /// Splash 演出を解除する（タイマー or 主要データ取得完了で送られる）
