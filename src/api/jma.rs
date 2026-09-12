@@ -85,6 +85,10 @@ impl Jma {
             .timeout(std::time::Duration::from_secs(20))
             .build()
             .expect("reqwest クライアントの構築に失敗");
+        Self::from_client(client)
+    }
+
+    fn from_client(client: reqwest::Client) -> Self {
         Self {
             openfreemap: super::openfreemap::OpenFreeMapRenderer::new(client.clone()),
             client,

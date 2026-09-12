@@ -189,5 +189,46 @@ pub fn select_provider(country: &str, force_jma: bool) -> Box<dyn WeatherProvide
 }
 
 #[cfg(test)]
+pub(crate) mod test_support {
+    use std::net::TcpListener;
+    use std::sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    };
+    use std::thread;
+    use std::time::{Duration, Instant};
+
+    pub(crate) fn counting_proxy_client()
+    -> (reqwest::Client, Arc<AtomicUsize>, thread::JoinHandle<()>) {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let address = listener.local_addr().unwrap();
+        let request_count = Arc::new(AtomicUsize::new(0));
+        let server_count = Arc::clone(&request_count);
+        let server_thread = thread::spawn(move || {
+            let deadline = Instant::now() + Duration::from_millis(500);
+            while Instant::now() < deadline {
+                match listener.accept() {
+                    Ok((_stream, _address)) => {
+                        server_count.fetch_add(1, Ordering::SeqCst);
+                        return;
+                    }
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        thread::sleep(Duration::from_millis(5));
+                    }
+                    Err(_) => return,
+                }
+            }
+        });
+        let client = reqwest::Client::builder()
+            .proxy(reqwest::Proxy::all(format!("http://{address}")).unwrap())
+            .timeout(Duration::from_millis(100))
+            .build()
+            .unwrap();
+        (client, request_count, server_thread)
+    }
+}
+
+#[cfg(test)]
 #[path = "tests/provider.rs"]
 mod tests;

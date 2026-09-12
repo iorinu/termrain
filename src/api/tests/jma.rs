@@ -4,6 +4,7 @@ use super::{
     nowcast_color_to_mmh, parse_jma_compact, rain_to_yahoo, sample_bilinear, text_to_icon,
     tile_to_lonlat,
 };
+use crate::api::test_support::counting_proxy_client;
 use crate::api::{WeatherIcon, WeatherProvider};
 use crate::config::MapStyle;
 
@@ -48,6 +49,25 @@ async fn refuses_carto_radar_without_an_api_key_before_network_access() {
         error.to_string(),
         "CARTO Voyager requires an API key. Check [radar].carto_api_key in the configuration file."
     );
+}
+
+#[tokio::test]
+async fn refuses_carto_radar_without_opening_a_network_connection() {
+    let (client, request_count, server_thread) = counting_proxy_client();
+    let provider = Jma::from_client(client);
+    provider.set_map_style(MapStyle::CartoVoyager);
+
+    let error = provider
+        .radar(35.6812, 139.7671, 11, 0, 1.0)
+        .await
+        .unwrap_err();
+    server_thread.join().unwrap();
+
+    assert_eq!(
+        error.to_string(),
+        "CARTO Voyager requires an API key. Check [radar].carto_api_key in the configuration file."
+    );
+    assert_eq!(request_count.load(std::sync::atomic::Ordering::SeqCst), 0);
 }
 
 #[test]
