@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-13
+
 ### Added
 - Add optional authenticated access to CARTO Voyager through
   `[radar].carto_api_key`. OpenFreeMap Liberty remains the default, and the
@@ -159,7 +161,8 @@ Initial public release.
 - Bilingual README (`README.md` / `README.ja.md`), MIT LICENSE, and a
   main-screen screenshot in `docs/screenshots/main.png`.
 
-[Unreleased]: https://github.com/iorinu/termrain/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/iorinu/termrain/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/iorinu/termrain/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/iorinu/termrain/compare/v0.3.4...v0.4.0
 [0.3.4]: https://github.com/iorinu/termrain/compare/v0.3.3...v0.3.4
 [0.3.3]: https://github.com/iorinu/termrain/compare/v0.3.2...v0.3.3
