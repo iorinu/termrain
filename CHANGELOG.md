@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Add optional authenticated access to CARTO Voyager through
+  `[radar].carto_api_key`. OpenFreeMap Liberty remains the default, and the
+  CARTO key is used only for CARTO tile requests.
+- Show CARTO and OpenStreetMap attribution in the radar panel and display a
+  localized warning instead of sending unauthenticated CARTO requests.
+- Save the termrain configuration with owner-only permissions on Unix-like
+  systems.
+
 ## [0.4.0] - 2026-09-08
 
 ### Fixed
@@ -20,17 +31,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   OpenFreeMap outside Japan.
 - Add the `radar.open_free_map_road_scale` setting for adjusting Liberty road
   widths without changing boundary, river, or rail widths.
-
-## [Unreleased]
-
-### Added
-- Add optional authenticated access to CARTO Voyager through
-  `[radar].carto_api_key`. OpenFreeMap Liberty remains the default, and the
-  CARTO key is used only for CARTO tile requests.
-- Show CARTO and OpenStreetMap attribution in the radar panel and display a
-  localized warning instead of sending unauthenticated CARTO requests.
-- Save the termrain configuration with owner-only permissions on Unix-like
-  systems.
 
 ## [0.3.4] - 2026-08-11
 

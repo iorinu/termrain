@@ -7,12 +7,28 @@
 use anyhow::{Context, Result};
 use serde::Deserialize;
 use serde_json::Value;
+use std::future::Future;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use tokio::sync::OnceCell;
 
 const STYLE_URL: &str = "https://tiles.openfreemap.org/styles/liberty";
 const VECTOR_SOURCE: &str = "openmaptiles";
 const TILE_SIZE: u32 = 256;
+const RASTER_FETCH_TIMEOUT: Duration = Duration::from_secs(20);
+
+async fn with_raster_timeout<T, E>(
+    duration: Duration,
+    future: impl Future<Output = std::result::Result<T, E>>,
+) -> Result<T>
+where
+    E: Into<anyhow::Error>,
+{
+    tokio::time::timeout(duration, future)
+        .await
+        .context("OpenFreeMap Natural Earth取得タイムアウト")?
+        .map_err(Into::into)
+}
 
 /// 公式Liberty styleの道路系line-widthだけを倍率変更する。
 ///
@@ -142,11 +158,14 @@ impl OpenFreeMapRenderer {
             // 低ズーム時だけezuのラスタソース取得を有効にする。
             if z <= 7 {
                 handle
-                    .block_on(ezu::paint::host::bind_raster_sources(
-                        &mut loader,
-                        &state.raster_sources,
-                        tile,
-                        canvas,
+                    .block_on(with_raster_timeout(
+                        RASTER_FETCH_TIMEOUT,
+                        ezu::paint::host::bind_raster_sources(
+                            &mut loader,
+                            &state.raster_sources,
+                            tile,
+                            canvas,
+                        ),
                     ))
                     .context("OpenFreeMap Natural Earth取得失敗")?;
             } else {
@@ -254,8 +273,21 @@ impl OpenFreeMapRenderer {
 
 #[cfg(test)]
 mod tests {
-    use super::scale_road_widths;
+    use super::{scale_road_widths, with_raster_timeout};
     use serde_json::json;
+    use std::time::Duration;
+
+    #[tokio::test]
+    async fn bounds_raster_fetch_duration() {
+        let error = with_raster_timeout(Duration::from_millis(1), async {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            Ok::<(), std::io::Error>(())
+        })
+        .await
+        .unwrap_err();
+
+        assert!(format!("{error:#}").contains("タイムアウト"));
+    }
 
     #[test]
     fn scales_road_width_outputs_without_changing_other_line_layers() {
