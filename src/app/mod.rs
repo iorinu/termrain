@@ -117,7 +117,7 @@ pub async fn run(args: Args) -> Result<()> {
     let (tx, mut rx) = mpsc::unbounded_channel::<Msg>();
 
     // 初回フェッチを spawn（天気 + 地図データ）
-    let request_id = state.next_radar_request_id();
+    let request_id = state.begin_radar_request();
     spawn_fetch(
         provider.clone(),
         state.config.clone(),
@@ -181,7 +181,7 @@ pub async fn run(args: Args) -> Result<()> {
                     sleep(Duration::from_secs(60 * 60 * 24)).await;
                 }
             } => {
-                let request_id = state.next_radar_request_id();
+                let request_id = state.begin_radar_request();
                 spawn_fetch(provider.clone(), state.config.clone(), request_id, state.radar_time_offset, state.radar_aspect, tx.clone());
             }
             // 雨雲アニメーション (playing 中のみ反映)
@@ -192,8 +192,7 @@ pub async fn run(args: Args) -> Result<()> {
                     if state.radar_time_offset > off_max {
                         state.radar_time_offset = off_min;
                     }
-                    state.radar_loading = true;
-                    let request_id = state.next_radar_request_id();
+                    let request_id = state.begin_radar_request();
                     spawn_radar(provider.clone(), state.config.clone(), request_id, state.radar_time_offset, state.radar_aspect, tx.clone());
                 }
             }

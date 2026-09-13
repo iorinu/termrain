@@ -53,8 +53,6 @@ pub fn handle_event(
             state.quit = true;
         }
         KeyCode::Char('r') => {
-            state.last_error = None;
-            state.radar_loading = true;
             request_fetch(state, provider.clone(), tx.clone());
         }
         KeyCode::Char('+') | KeyCode::Char('=') => {
@@ -125,7 +123,7 @@ fn request_fetch(
     provider: Arc<dyn WeatherProvider>,
     tx: mpsc::UnboundedSender<Msg>,
 ) {
-    let request_id = state.next_radar_request_id();
+    let request_id = state.begin_radar_request();
     spawn_fetch(
         provider,
         state.config.clone(),
@@ -141,8 +139,7 @@ fn request_radar(
     provider: Arc<dyn WeatherProvider>,
     tx: mpsc::UnboundedSender<Msg>,
 ) {
-    clear_previous_radar_error(state);
-    let request_id = state.next_radar_request_id();
+    let request_id = state.begin_radar_request();
     spawn_radar(
         provider,
         state.config.clone(),
@@ -153,17 +150,10 @@ fn request_radar(
     );
 }
 
-fn clear_previous_radar_error(state: &mut AppState) {
-    if state.radar_error.as_deref() == state.last_error.as_deref() {
-        state.last_error = None;
-    }
-    state.radar_error = None;
-}
-
 fn clear_radar_display_for_style_change(state: &mut AppState) {
     state.radar = None;
     state.radar_protocol = None;
-    clear_previous_radar_error(state);
+    state.clear_radar_error();
 }
 
 #[cfg(test)]

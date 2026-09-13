@@ -67,6 +67,21 @@ impl AppState {
         self.radar_request_id = self.radar_request_id.wrapping_add(1);
         self.radar_request_id
     }
+
+    /// 新しい取得開始時に、レーダー固有の古いエラーだけを片付ける。
+    pub fn clear_radar_error(&mut self) {
+        if self.radar_error.as_deref() == self.last_error.as_deref() {
+            self.last_error = None;
+        }
+        self.radar_error = None;
+    }
+
+    /// レーダー取得の共通開始処理。全ての再取得経路で同じ状態遷移を使う。
+    pub fn begin_radar_request(&mut self) -> u64 {
+        self.clear_radar_error();
+        self.radar_loading = true;
+        self.next_radar_request_id()
+    }
 }
 
 // 取得結果をメインに伝えるためのメッセージ

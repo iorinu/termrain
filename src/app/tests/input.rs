@@ -137,7 +137,7 @@ fn clears_the_previous_radar_error_when_starting_a_radar_retry() {
     state.radar_error = Some("old radar error".into());
     state.last_error = Some("old radar error".into());
 
-    clear_previous_radar_error(&mut state);
+    state.begin_radar_request();
 
     assert!(state.radar_error.is_none());
     assert!(state.last_error.is_none());

@@ -102,7 +102,7 @@ fn renders_carto_attribution_in_the_text_fallback() {
         .iter()
         .map(|cell| cell.symbol())
         .collect();
-    assert!(text.contains("OpenStreetMap contributors"));
+    assert!(text.contains("© OpenStreetMap contributors"));
     assert!(text.contains("© CARTO"));
 }
 
@@ -124,7 +124,7 @@ fn keeps_carto_attribution_visible_in_a_narrow_text_fallback() {
         .iter()
         .map(|cell| cell.symbol())
         .collect();
-    assert!(text.contains("OpenStreetMap contributors"));
+    assert!(text.contains("© OpenStreetMap contributors"));
     assert!(text.contains("© CARTO"));
 }
 
@@ -155,7 +155,7 @@ fn keeps_carto_attribution_visible_in_a_narrow_image_panel() {
         .iter()
         .map(|cell| cell.symbol())
         .collect();
-    assert!(text.contains("OpenStreetMap contributors"));
+    assert!(text.contains("© OpenStreetMap contributors"));
     assert!(text.contains("© CARTO"));
 }
 
@@ -177,7 +177,7 @@ fn keeps_a_compact_carto_attribution_in_a_short_panel() {
         .iter()
         .map(|cell| cell.symbol())
         .collect();
-    assert!(text.contains("OSM contributors"));
+    assert!(text.contains("© OSM contributors"));
     assert!(text.contains("© CARTO"));
 }
 
@@ -208,6 +208,6 @@ fn keeps_a_compact_carto_attribution_in_a_short_image_panel() {
         .iter()
         .map(|cell| cell.symbol())
         .collect();
-    assert!(text.contains("OSM contributors"));
+    assert!(text.contains("© OSM contributors"));
     assert!(text.contains("© CARTO"));
 }
