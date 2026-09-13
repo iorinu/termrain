@@ -7,7 +7,9 @@
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::fs::{File, OpenOptions};
+use std::io::Write;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
@@ -68,7 +70,7 @@ pub enum MapStyle {
     GsiStd,
     /// OpenStreetMap Standard（世界対応のラスタ地図）
     OpenStreetMap,
-    /// CARTO Voyager（現在はAPIキー要求画像が返る）
+    /// CARTO Voyager（APIキーを設定した場合に利用可能）
     CartoVoyager,
     /// OpenFreeMap Liberty（MapLibre互換のベクタ地図）
     OpenFreeMap,
@@ -90,9 +92,17 @@ impl MapStyle {
         match self {
             Self::GsiStd => "国土地理院 標準",
             Self::OpenStreetMap => "OpenStreetMap (© OpenStreetMap contributors)",
-            Self::CartoVoyager => "CARTO Voyager (API key required)",
+            Self::CartoVoyager => "CARTO Voyager",
             Self::OpenFreeMap => "OpenFreeMap Liberty (© OpenMapTiles, © OpenStreetMap)",
             Self::GsiPhoto => "国土地理院 航空写真",
+        }
+    }
+
+    /// 表示言語を考慮した地図ラベル。CARTOは利用規約上必要な帰属を含める。
+    pub fn label_for_language(self, _language: crate::i18n::Language) -> &'static str {
+        match self {
+            Self::CartoVoyager => "CARTO Voyager (© OpenStreetMap contributors, © CARTO)",
+            _ => self.label(),
         }
     }
 
@@ -131,6 +141,29 @@ impl MapStyle {
             ),
         }
     }
+
+    /// CARTO Voyagerを使うときだけ、APIキーをURLへ追加する。
+    ///
+    /// キーはCARTOの仕様上クエリパラメータで送る必要があるが、他の
+    /// 地図プロバイダーへ誤って伝播しないよう、このメソッド内で限定する。
+    pub fn tile_url_with_carto_api_key(
+        self,
+        z: u8,
+        x: u32,
+        y: u32,
+        carto_api_key: Option<&str>,
+    ) -> String {
+        let url = self.tile_url(z, x, y);
+        let Some(key) = carto_api_key.filter(|key| !key.trim().is_empty()) else {
+            return url;
+        };
+        if self == Self::CartoVoyager {
+            format!("{url}?key={}", urlencoding::encode(key))
+        } else {
+            url
+        }
+    }
+
     pub fn cache_key(self) -> &'static str {
         match self {
             Self::GsiStd => "gsi_std",
@@ -152,6 +185,9 @@ pub struct RadarConfig {
     /// OpenFreeMap Liberty の道路幅倍率。0.7 なら公式styleの70%になる。
     #[serde(default = "default_open_free_map_road_scale")]
     pub open_free_map_road_scale: f64,
+    /// CARTO Voyager用APIキー。未設定ならCARTOへリクエストしない。
+    #[serde(default)]
+    pub carto_api_key: Option<String>,
 }
 
 pub const DEFAULT_OPEN_FREE_MAP_ROAD_SCALE: f64 = 0.7;
@@ -173,6 +209,7 @@ impl Default for RadarConfig {
             zoom: 11,
             map_style: MapStyle::OpenFreeMap,
             open_free_map_road_scale: default_open_free_map_road_scale(),
+            carto_api_key: None,
         }
     }
 }
@@ -208,6 +245,18 @@ impl Config {
                 .with_context(|| format!("設定ファイル読込: {}", path.display()))?;
             let cfg: Config = toml::from_str(&text)
                 .with_context(|| format!("設定ファイルのTOMLパース: {}", path.display()))?;
+            if cfg
+                .radar
+                .carto_api_key
+                .as_deref()
+                .is_some_and(|key| !key.trim().is_empty())
+                && let Err(error) = set_owner_only_permissions(&path)
+            {
+                tracing::warn!(
+                    "APIキーを含む設定ファイルの権限変更に失敗 {}: {error:#}",
+                    path.display()
+                );
+            }
             return Ok(cfg);
         }
         // 初回起動: デフォルト設定をファイルに書き出して案内する
@@ -230,10 +279,48 @@ impl Config {
             std::fs::create_dir_all(parent)?;
         }
         let text = toml::to_string_pretty(self)?;
-        std::fs::write(&path, text)
+        if path.exists() {
+            set_owner_only_permissions(&path)
+                .with_context(|| format!("設定ファイル権限変更: {}", path.display()))?;
+        }
+        let mut file = open_config_file(&path)
             .with_context(|| format!("設定ファイル書き込み: {}", path.display()))?;
+        file.write_all(text.as_bytes())
+            .with_context(|| format!("設定ファイル書き込み: {}", path.display()))?;
+        set_owner_only_permissions(&path)
+            .with_context(|| format!("設定ファイル権限変更: {}", path.display()))?;
         Ok(())
     }
+}
+
+fn open_config_file(path: &Path) -> Result<File> {
+    let mut options = OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+
+        options.mode(0o600);
+    }
+    Ok(options.open(path)?)
+}
+
+/// 設定ファイルを所有者だけが読み書きできる権限にする。
+/// WindowsではユーザープロファイルのACLに任せるため、追加操作は行わない。
+fn set_owner_only_permissions(path: &Path) -> Result<()> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        let mut permissions = std::fs::metadata(path)?.permissions();
+        permissions.set_mode(0o600);
+        std::fs::set_permissions(path, permissions)?;
+    }
+
+    #[cfg(not(unix))]
+    let _ = path;
+
+    Ok(())
 }
 
 /// キャッシュディレクトリ（XDG 準拠）。

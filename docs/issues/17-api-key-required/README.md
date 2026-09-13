@@ -25,7 +25,7 @@ PR本文には、未認証のラスタタイルに`API key required`の透かし
 
 Issue #17に報告された環境は次のとおり。
 
-- termrain 0.3.4
+- termrain 0.4.0
 - Arch Linux
 - Kitty
 - 座標: `50.186, 15.041`
@@ -128,7 +128,7 @@ CARTO APIキーを設定可能にする案もあるが、ユーザーごとの�
 
 ## 現在の状態
 
-0.4.0向けの修正ではCARTO Voyagerをデフォルトから外し、OpenFreeMap Libertyをデフォルトにした。`carto_voyager`設定はCARTO Voyagerそのものを選択し、現在のAPIキー要求画像を比較用に表示する。`m`キーではOpenFreeMap Liberty、OpenStreetMap、CARTO Voyager、国土地理院標準地図、国土地理院航空写真の5種類を巡回できる。OpenFreeMapはMapLibre styleとMVTをezuでRGBA画像へ描画してから、既存の雨雲画像合成へ渡す。
+CARTO Voyagerはデフォルトから外し、OpenFreeMap Libertyをデフォルトにした。`carto_voyager`設定はCARTO Voyagerそのものを選択し、現在のAPIキー要求画像を比較用に表示する。`m`キーではOpenFreeMap Liberty、OpenStreetMap、CARTO Voyager、国土地理院標準地図、国土地理院航空写真の5種類を巡回できる。OpenFreeMapはMapLibre styleとMVTをezuでRGBA画像へ描画してから、既存の雨雲画像合成へ渡す。
 
 - Issue: [iorinu/termrain #17](https://github.com/iorinu/termrain/issues/17)
 - 修正前コードを基準に再現確認済み

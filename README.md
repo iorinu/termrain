@@ -190,9 +190,26 @@ language = "english"     # english / japanese
 zoom = 11                # 6 (wide ≒ 130 km) to 13 (narrow ≒ 4 km)
 map_style = "open_free_map"    # open_free_map / open_street_map / carto_voyager / gsi_std / gsi_photo
 open_free_map_road_scale = 0.7 # 0.1 to 2.0; smaller values make Liberty roads thinner
+# carto_api_key = "YOUR_KEY"    # required only when map_style = "carto_voyager"
 ```
 
 `--save` rewrites this file with the current launch arguments.
+
+OpenFreeMap Liberty is the default and does not require a CARTO API key. To opt in
+to CARTO Voyager, set `map_style = "carto_voyager"` and add your own key to
+`[radar].carto_api_key`. Obtain a key from [CARTO's basemap API-key page](https://carto.com/basemaps/apikey).
+
+The key is sent only to CARTO Voyager tile requests. It is not included in logs,
+error messages, cache keys, or documentation. Keep the key private and do not
+commit this configuration file to a shared dotfiles repository. On Unix-like
+systems termrain stores the file with owner-only `0600` permissions; on Windows,
+protect it with the ACLs for your user profile.
+
+CARTO's basemap service documents a 5 million tile-request monthly free limit
+subject to attribution and the [Basemap Terms](https://carto.com/legal/basemap-terms).
+The raster basemap is a legacy service and CARTO recommends vector basemaps for
+new applications, so Voyager remains an explicit opt-in style rather than the
+default.
 
 
 ## Caches
@@ -213,7 +230,7 @@ rm -rf ~/.cache/termrain
 - **JMA Nowcast** (rain radar, Japan): <https://www.jma.go.jp/>
 - **GSI (Geospatial Information Authority of Japan)** (map tiles, Japan): <https://maps.gsi.go.jp/>
 - **OpenStreetMap Standard** (map tiles, worldwide): <https://www.openstreetmap.org/copyright>
-- **CARTO Voyager** (legacy map tile; currently returns an API-key-required image): <https://carto.com/basemaps>
+- **CARTO Voyager** (legacy map tile; requires an API key when selected): <https://carto.com/basemaps>
 - **OpenFreeMap Liberty** (vector map tiles, worldwide): <https://openfreemap.org/>
 - **Open-Meteo** (weather forecast outside Japan, geocoding): <https://open-meteo.com/>
 - **RainViewer** (rain radar tiles outside Japan): <https://www.rainviewer.com/>

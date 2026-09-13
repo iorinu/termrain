@@ -36,6 +36,8 @@ pub struct AppState {
     /// 雨雲レーダーの取得中フラグ。spawn_radar で true、Msg::Radar 受信で false。
     /// 時刻スクラブやズーム中に「いま処理中」を UI で示すために使う。
     pub radar_loading: bool,
+    /// 最新のレーダー取得に固有のエラー。天気取得エラーで上書きしない。
+    pub radar_error: Option<String>,
     /// 直近に開始したレーダー取得の世代番号。古い非同期結果を破棄するために使う。
     pub radar_request_id: u64,
     /// 合成画像に要求するアスペクト比（横/縦）。端末サイズから計算し、
@@ -65,6 +67,21 @@ impl AppState {
         self.radar_request_id = self.radar_request_id.wrapping_add(1);
         self.radar_request_id
     }
+
+    /// 新しい取得開始時に、レーダー固有の古いエラーだけを片付ける。
+    pub fn clear_radar_error(&mut self) {
+        if self.radar_error.as_deref() == self.last_error.as_deref() {
+            self.last_error = None;
+        }
+        self.radar_error = None;
+    }
+
+    /// レーダー取得の共通開始処理。全ての再取得経路で同じ状態遷移を使う。
+    pub fn begin_radar_request(&mut self) -> u64 {
+        self.clear_radar_error();
+        self.radar_loading = true;
+        self.next_radar_request_id()
+    }
 }
 
 // 取得結果をメインに伝えるためのメッセージ
@@ -75,6 +92,10 @@ pub enum Msg {
     Radar {
         request_id: u64,
         grid: RadarGrid,
+    },
+    RadarError {
+        request_id: u64,
+        error: String,
     },
     Map(Arc<MapData>),
     Error(String),

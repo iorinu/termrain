@@ -58,6 +58,7 @@ pub async fn run(args: Args) -> Result<()> {
         .effective_for_country(&config.location.country);
     // 設定で指定された地図スタイル・言語をプロバイダーに反映
     provider.set_map_style(config.radar.map_style);
+    provider.set_carto_api_key(config.radar.carto_api_key.clone());
     provider.set_open_free_map_road_scale(config.radar.open_free_map_road_scale);
     provider.set_language(config.ui.language);
 
@@ -101,6 +102,7 @@ pub async fn run(args: Args) -> Result<()> {
         show_help: false,
         spinner_frame: 0,
         radar_loading: false,
+        radar_error: None,
         radar_request_id: 0,
         radar_aspect,
         last_error: None,
@@ -115,7 +117,7 @@ pub async fn run(args: Args) -> Result<()> {
     let (tx, mut rx) = mpsc::unbounded_channel::<Msg>();
 
     // 初回フェッチを spawn（天気 + 地図データ）
-    let request_id = state.next_radar_request_id();
+    let request_id = state.begin_radar_request();
     spawn_fetch(
         provider.clone(),
         state.config.clone(),
@@ -179,7 +181,7 @@ pub async fn run(args: Args) -> Result<()> {
                     sleep(Duration::from_secs(60 * 60 * 24)).await;
                 }
             } => {
-                let request_id = state.next_radar_request_id();
+                let request_id = state.begin_radar_request();
                 spawn_fetch(provider.clone(), state.config.clone(), request_id, state.radar_time_offset, state.radar_aspect, tx.clone());
             }
             // 雨雲アニメーション (playing 中のみ反映)
@@ -190,8 +192,7 @@ pub async fn run(args: Args) -> Result<()> {
                     if state.radar_time_offset > off_max {
                         state.radar_time_offset = off_min;
                     }
-                    state.radar_loading = true;
-                    let request_id = state.next_radar_request_id();
+                    let request_id = state.begin_radar_request();
                     spawn_radar(provider.clone(), state.config.clone(), request_id, state.radar_time_offset, state.radar_aspect, tx.clone());
                 }
             }

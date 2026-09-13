@@ -38,8 +38,20 @@ pub fn apply_msg(state: &mut AppState, msg: Msg) {
             }
             state.radar = Some(r);
             state.radar_loading = false;
+            if state.radar_error.as_deref() == state.last_error.as_deref() {
+                state.last_error = None;
+            }
+            state.radar_error = None;
         }
         Msg::Radar { .. } => {}
+        Msg::RadarError { request_id, error }
+            if should_apply_radar(request_id, state.radar_request_id) =>
+        {
+            state.radar_loading = false;
+            state.radar_error = Some(error.clone());
+            state.last_error = Some(error);
+        }
+        Msg::RadarError { .. } => {}
         Msg::Map(m) => state.map = m,
         Msg::Error(e) => state.last_error = Some(e),
         Msg::DismissSplash => state.splash_active = false,
@@ -144,7 +156,10 @@ pub fn spawn_fetch(
                     });
                 }
                 Err(e) => {
-                    let _ = tx.send(Msg::Error(format!("radar: {e:#}")));
+                    let _ = tx.send(Msg::RadarError {
+                        request_id: radar_request_id,
+                        error: format!("radar: {e:#}"),
+                    });
                 }
             }
         });
@@ -171,7 +186,10 @@ pub fn spawn_radar(
                 });
             }
             Err(e) => {
-                let _ = tx.send(Msg::Error(format!("radar: {e:#}")));
+                let _ = tx.send(Msg::RadarError {
+                    request_id: radar_request_id,
+                    error: format!("radar: {e:#}"),
+                });
             }
         }
     });

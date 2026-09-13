@@ -22,7 +22,7 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::symbols;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{
-    Block, Borders, Paragraph,
+    Block, Borders, Paragraph, Wrap,
     canvas::{Canvas, Line as CanvasLine, Points},
 };
 
@@ -32,12 +32,86 @@ use crate::map;
 use crate::render::color::precipitation_color;
 use ratatui_image::{Resize, StatefulImage};
 
+const CARTO_ATTRIBUTION_HEIGHT: u16 = 3;
+
+fn radar_map_label(style: crate::config::MapStyle) -> String {
+    style.label().to_string()
+}
+
+fn split_radar_area(area: Rect, show_attribution: bool) -> (Rect, Option<Rect>) {
+    if !show_attribution || area.height == 0 {
+        return (area, None);
+    }
+    let attribution_height = if area.height <= CARTO_ATTRIBUTION_HEIGHT {
+        1
+    } else {
+        CARTO_ATTRIBUTION_HEIGHT
+    };
+    let map_height = area.height.saturating_sub(attribution_height);
+    (
+        Rect::new(area.x, area.y, area.width, map_height),
+        Some(Rect::new(
+            area.x,
+            area.y.saturating_add(map_height),
+            area.width,
+            attribution_height,
+        )),
+    )
+}
+
+fn render_carto_attribution(f: &mut Frame, area: Rect, language: crate::i18n::Language) {
+    let label = crate::config::MapStyle::CartoVoyager.label_for_language(language);
+    let attribution = if area.height == 1 {
+        "© OSM contributors / © CARTO".to_string()
+    } else {
+        label
+            .split_once('(')
+            .and_then(|(_, value)| value.strip_suffix(')'))
+            .unwrap_or(label)
+            .replace(", ", "\n")
+    };
+    let paragraph = Paragraph::new(attribution)
+        .style(Style::default().fg(super::theme::SUBTLE).bg(Color::Black))
+        .wrap(Wrap { trim: true });
+    f.render_widget(paragraph, area);
+}
+
+fn draw_empty_radar(f: &mut Frame, area: Rect, state: &AppState) {
+    let s = crate::i18n::strings(state.config.ui.language);
+    let status = if state.radar_loading {
+        s.loading
+    } else if state.radar_error.is_some() {
+        s.radar_error
+    } else {
+        s.loading
+    };
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Gray))
+        .title(Span::styled(
+            format!("{} ({})", s.radar_title, status),
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        ))
+        .style(Style::default().bg(Color::Black));
+    let inner = block.inner(area);
+    f.render_widget(block, area);
+    if let Some(error) = &state.radar_error {
+        let paragraph = Paragraph::new(error.as_str())
+            .style(Style::default().fg(super::theme::ERROR).bg(Color::Black))
+            .wrap(Wrap { trim: true });
+        f.render_widget(paragraph, inner);
+    }
+}
+
 /// Kitty/Sixel graphics プロトコルで合成画像を描画する版。
 /// StatefulImage は描画時に area サイズに合わせてリサイズするため、
 /// パネルが大きいウィンドウでも画像が領域いっぱいに広がる。
 fn draw_image_radar(f: &mut Frame, area: Rect, state: &mut AppState) {
     let s = crate::i18n::strings(state.config.ui.language);
     let Some(grid) = state.radar.as_ref() else {
+        draw_empty_radar(f, area, state);
         return;
     };
     let max_mmh = grid
@@ -69,7 +143,7 @@ fn draw_image_radar(f: &mut Frame, area: Rect, state: &mut AppState) {
         }
     };
     let play = if state.radar_playing { " ▶" } else { "" };
-    let map_attrib = state.config.radar.map_style.label();
+    let map_label = radar_map_label(state.config.radar.map_style);
     let loading_mark = if state.radar_loading {
         format!("{} ", state.spinner())
     } else {
@@ -94,7 +168,7 @@ fn draw_image_radar(f: &mut Frame, area: Rect, state: &mut AppState) {
         play,
         max_part,
         map_word,
-        map_attrib,
+        map_label,
     );
     let block = if state.radar_loading {
         // 取得中はタイトル色を WARN（黄）にして「更新中」を強調
@@ -114,11 +188,21 @@ fn draw_image_radar(f: &mut Frame, area: Rect, state: &mut AppState) {
     };
     let inner = block.inner(area);
     f.render_widget(block, area);
-    if let Some(protocol) = state.radar_protocol.as_mut() {
+    let (image_area, attribution_area) = split_radar_area(
+        inner,
+        state.config.radar.map_style == crate::config::MapStyle::CartoVoyager,
+    );
+    if let Some(protocol) = state.radar_protocol.as_mut()
+        && image_area.width > 0
+        && image_area.height > 0
+    {
         // Resize::Fit は「画像が area より小さければそのまま」になるので、
         // 拡大もしてほしい場合は Scale を使う。これで合成画像がパネル全域に広がる。
         let image_widget = StatefulImage::default().resize(Resize::Scale(None));
-        f.render_stateful_widget(image_widget, inner, protocol);
+        f.render_stateful_widget(image_widget, image_area, protocol);
+    }
+    if let Some(attribution_area) = attribution_area {
+        render_carto_attribution(f, attribution_area, state.config.ui.language);
     }
 }
 
@@ -138,17 +222,7 @@ pub fn draw(f: &mut Frame, area: Rect, state: &mut AppState) {
     let radar_bg = Style::default().bg(Color::Black);
 
     let Some(grid) = state.radar.clone() else {
-        let block = Block::default()
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Gray))
-            .title(Span::styled(
-                format!("{} ({})", s.radar_title, s.loading),
-                Style::default()
-                    .fg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD),
-            ))
-            .style(radar_bg);
-        f.render_widget(block, area);
+        draw_empty_radar(f, area, state);
         return;
     };
 
@@ -157,16 +231,22 @@ pub fn draw(f: &mut Frame, area: Rect, state: &mut AppState) {
         .iter()
         .flat_map(|r| r.iter().copied())
         .fold(0.0_f64, f64::max);
+    let map_label = radar_map_label(state.config.radar.map_style);
     let title = format!(
-        "{}  {}  max {:.1}mm/h",
+        "{}  {}  max {:.1}mm/h  [{}]",
         s.radar_title,
         grid.observed_at.format("%m/%d %H:%M"),
-        max_mmh
+        max_mmh,
+        map_label,
     );
 
     // titled_block と同じ見た目だが、bg を黒に上書き
     let block = titled_block(&title).style(radar_bg);
     let inner = block.inner(area);
+    let (map_area, attribution_area) = split_radar_area(
+        inner,
+        state.config.radar.map_style == crate::config::MapStyle::CartoVoyager,
+    );
     f.render_widget(block, area);
 
     if grid.width == 0 || grid.height == 0 {
@@ -174,7 +254,10 @@ pub fn draw(f: &mut Frame, area: Rect, state: &mut AppState) {
             "データなし",
             Style::default().fg(Color::Gray),
         )));
-        f.render_widget(p, inner);
+        f.render_widget(p, map_area);
+        if let Some(attribution_area) = attribution_area {
+            render_carto_attribution(f, attribution_area, state.config.ui.language);
+        }
         return;
     }
 
@@ -473,7 +556,12 @@ pub fn draw(f: &mut Frame, area: Rect, state: &mut AppState) {
             }
         });
 
-    f.render_widget(canvas, inner);
+    if map_area.width > 0 && map_area.height > 0 {
+        f.render_widget(canvas, map_area);
+    }
+    if let Some(attribution_area) = attribution_area {
+        render_carto_attribution(f, attribution_area, state.config.ui.language);
+    }
 }
 
 #[cfg(test)]

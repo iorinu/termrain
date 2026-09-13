@@ -53,8 +53,6 @@ pub fn handle_event(
             state.quit = true;
         }
         KeyCode::Char('r') => {
-            state.last_error = None;
-            state.radar_loading = true;
             request_fetch(state, provider.clone(), tx.clone());
         }
         KeyCode::Char('+') | KeyCode::Char('=') => {
@@ -92,6 +90,7 @@ pub fn handle_event(
         }
         // 地図スタイル切替 (Liberty → OSM → CARTO → GSI標準 → 航空写真 ...)
         KeyCode::Char('m') | KeyCode::Char('M') => {
+            clear_radar_display_for_style_change(state);
             state.config.radar.map_style = state
                 .config
                 .radar
@@ -124,7 +123,7 @@ fn request_fetch(
     provider: Arc<dyn WeatherProvider>,
     tx: mpsc::UnboundedSender<Msg>,
 ) {
-    let request_id = state.next_radar_request_id();
+    let request_id = state.begin_radar_request();
     spawn_fetch(
         provider,
         state.config.clone(),
@@ -140,7 +139,7 @@ fn request_radar(
     provider: Arc<dyn WeatherProvider>,
     tx: mpsc::UnboundedSender<Msg>,
 ) {
-    let request_id = state.next_radar_request_id();
+    let request_id = state.begin_radar_request();
     spawn_radar(
         provider,
         state.config.clone(),
@@ -149,6 +148,12 @@ fn request_radar(
         state.radar_aspect,
         tx,
     );
+}
+
+fn clear_radar_display_for_style_change(state: &mut AppState) {
+    state.radar = None;
+    state.radar_protocol = None;
+    state.clear_radar_error();
 }
 
 #[cfg(test)]
