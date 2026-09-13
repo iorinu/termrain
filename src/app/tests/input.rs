@@ -109,12 +109,36 @@ fn clears_old_radar_and_error_before_map_style_reload() {
         observed_at: chrono::Local::now(),
     });
     state.radar_error = Some("old radar error".into());
-    state.last_error = Some("old error".into());
+    state.last_error = Some("old radar error".into());
 
     clear_radar_display_for_style_change(&mut state);
 
     assert!(state.radar.is_none());
     assert!(state.radar_protocol.is_none());
+    assert!(state.radar_error.is_none());
+    assert!(state.last_error.is_none());
+}
+
+#[test]
+fn keeps_an_unrelated_error_when_clearing_radar_for_map_style_reload() {
+    let mut state = test_state();
+    state.radar_error = Some("old radar error".into());
+    state.last_error = Some("weather request failed".into());
+
+    clear_radar_display_for_style_change(&mut state);
+
+    assert!(state.radar_error.is_none());
+    assert_eq!(state.last_error.as_deref(), Some("weather request failed"));
+}
+
+#[test]
+fn clears_the_previous_radar_error_when_starting_a_radar_retry() {
+    let mut state = test_state();
+    state.radar_error = Some("old radar error".into());
+    state.last_error = Some("old radar error".into());
+
+    clear_previous_radar_error(&mut state);
+
     assert!(state.radar_error.is_none());
     assert!(state.last_error.is_none());
 }

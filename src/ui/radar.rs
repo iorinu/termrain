@@ -17,7 +17,7 @@
 //     y = (lat - lat_s) / (lat_n - lat_s) * height   // 北が上
 
 use ratatui::Frame;
-use ratatui::layout::{Constraint, Direction, Layout, Rect};
+use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::symbols;
 use ratatui::text::{Line, Span};
@@ -33,40 +33,43 @@ use crate::render::color::precipitation_color;
 use ratatui_image::{Resize, StatefulImage};
 
 const CARTO_ATTRIBUTION_HEIGHT: u16 = 3;
-const CARTO_COMPACT_ATTRIBUTION: &str = "© OSM contributors / © CARTO";
 
-fn radar_map_label(style: crate::config::MapStyle, area: Rect) -> String {
-    let label = style.label();
-    if style == crate::config::MapStyle::CartoVoyager
-        && area.height.saturating_sub(2) <= CARTO_ATTRIBUTION_HEIGHT
-    {
-        format!("{label} · {CARTO_COMPACT_ATTRIBUTION}")
-    } else {
-        label.to_string()
-    }
+fn radar_map_label(style: crate::config::MapStyle) -> String {
+    style.label().to_string()
 }
 
 fn split_radar_area(area: Rect, show_attribution: bool) -> (Rect, Option<Rect>) {
-    if !show_attribution || area.height <= CARTO_ATTRIBUTION_HEIGHT {
+    if !show_attribution || area.height == 0 {
         return (area, None);
     }
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Min(0),
-            Constraint::Length(CARTO_ATTRIBUTION_HEIGHT),
-        ])
-        .split(area);
-    (chunks[0], Some(chunks[1]))
+    let attribution_height = if area.height <= CARTO_ATTRIBUTION_HEIGHT {
+        1
+    } else {
+        CARTO_ATTRIBUTION_HEIGHT
+    };
+    let map_height = area.height.saturating_sub(attribution_height);
+    (
+        Rect::new(area.x, area.y, area.width, map_height),
+        Some(Rect::new(
+            area.x,
+            area.y.saturating_add(map_height),
+            area.width,
+            attribution_height,
+        )),
+    )
 }
 
 fn render_carto_attribution(f: &mut Frame, area: Rect, language: crate::i18n::Language) {
     let label = crate::config::MapStyle::CartoVoyager.label_for_language(language);
-    let attribution = label
-        .split_once('(')
-        .and_then(|(_, value)| value.strip_suffix(')'))
-        .unwrap_or(label)
-        .replace(", ", "\n");
+    let attribution = if area.height == 1 {
+        "© OSM contributors / © CARTO".to_string()
+    } else {
+        label
+            .split_once('(')
+            .and_then(|(_, value)| value.strip_suffix(')'))
+            .unwrap_or(label)
+            .replace(", ", "\n")
+    };
     let paragraph = Paragraph::new(attribution)
         .style(Style::default().fg(super::theme::SUBTLE).bg(Color::Black))
         .wrap(Wrap { trim: true });
@@ -140,7 +143,7 @@ fn draw_image_radar(f: &mut Frame, area: Rect, state: &mut AppState) {
         }
     };
     let play = if state.radar_playing { " ▶" } else { "" };
-    let map_label = radar_map_label(state.config.radar.map_style, area);
+    let map_label = radar_map_label(state.config.radar.map_style);
     let loading_mark = if state.radar_loading {
         format!("{} ", state.spinner())
     } else {
@@ -228,7 +231,7 @@ pub fn draw(f: &mut Frame, area: Rect, state: &mut AppState) {
         .iter()
         .flat_map(|r| r.iter().copied())
         .fold(0.0_f64, f64::max);
-    let map_label = radar_map_label(state.config.radar.map_style, area);
+    let map_label = radar_map_label(state.config.radar.map_style);
     let title = format!(
         "{}  {}  max {:.1}mm/h  [{}]",
         s.radar_title,

@@ -141,7 +141,7 @@ fn request_radar(
     provider: Arc<dyn WeatherProvider>,
     tx: mpsc::UnboundedSender<Msg>,
 ) {
-    state.radar_error = None;
+    clear_previous_radar_error(state);
     let request_id = state.next_radar_request_id();
     spawn_radar(
         provider,
@@ -153,11 +153,17 @@ fn request_radar(
     );
 }
 
+fn clear_previous_radar_error(state: &mut AppState) {
+    if state.radar_error.as_deref() == state.last_error.as_deref() {
+        state.last_error = None;
+    }
+    state.radar_error = None;
+}
+
 fn clear_radar_display_for_style_change(state: &mut AppState) {
     state.radar = None;
     state.radar_protocol = None;
-    state.radar_error = None;
-    state.last_error = None;
+    clear_previous_radar_error(state);
 }
 
 #[cfg(test)]
