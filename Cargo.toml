@@ -19,7 +19,7 @@ clap = { version = "4.6.1", features = ["derive"] }
 clap_complete = "4.6"
 crossterm = { version = "0.29.0", features = ["event-stream"] }
 directories = "6.0.0"
-ezu = { version = "0.11.0", features = ["http"] }
+ezu = { version = "0.12.0", features = ["http"] }
 futures = "0.3.32"
 geojson = "1.0.0"
 image = { version = "0.25.10", default-features = false, features = ["jpeg", "png"] }
