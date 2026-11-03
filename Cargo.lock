@@ -832,9 +832,9 @@ dependencies = [
 
 [[package]]
 name = "ezu"
-version = "0.11.0"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "38fad703c8c8d2e2b3d817d6d431736550a878b88268a0cd6e14563cb1f62764"
+checksum = "1689efd5af539c3b7fe0880b47aed4bae78f904da00c4622f25573bbc41147c1"
 dependencies = [
  "ezu-core",
  "ezu-features",
@@ -842,13 +842,18 @@ dependencies = [
  "ezu-paint",
  "ezu-style",
  "ezu-translate",
+ "hokusai",
+ "maplibre-expr",
+ "serde_json",
+ "tracing",
+ "xxhash-rust",
 ]
 
 [[package]]
 name = "ezu-core"
-version = "0.11.0"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b62c9848cf2d7bd929c4442604810efa858474c27b8f2083dfe0f81c326c2e1"
+checksum = "81d3cfb279b98cb3d9a39ddca5c03a6954d3287b32823ef4617528fc8400f720"
 dependencies = [
  "libm",
  "lru 0.12.5",
@@ -864,9 +869,9 @@ dependencies = [
 
 [[package]]
 name = "ezu-features"
-version = "0.11.0"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d4b511e571d3f9a4b14759fc34b3f165e03451d1925bf018afd1509e01098e8"
+checksum = "ff52a99de061c76507f20f25c5e7cfb420bfe9b4fe63828fad6d7c0d8f540777"
 dependencies = [
  "delaunator",
  "ezu-core",
@@ -882,9 +887,9 @@ dependencies = [
 
 [[package]]
 name = "ezu-graph"
-version = "0.11.0"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "913fa4f6741ddd131737d63aa690b5a501b70d0b9aff983576d49b00503d2b56"
+checksum = "54be88dbf8eadbc74c44912752848ceea3fd724566cbc9df4ceac73f7440aff8"
 dependencies = [
  "ezu-style",
  "indexmap",
@@ -898,9 +903,9 @@ dependencies = [
 
 [[package]]
 name = "ezu-paint"
-version = "0.11.0"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a58d499ca540236615b1c776fcc38265c164ad145c808c30fe23eca2abb4e7cc"
+checksum = "f3867056198acad58e649d366fb3f18ecfa26cae54d303ef02e17969cf8a98b9"
 dependencies = [
  "base64 0.22.1",
  "ezu-core",
@@ -926,9 +931,9 @@ dependencies = [
 
 [[package]]
 name = "ezu-style"
-version = "0.11.0"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cdd6e618c3d6cf1dedb7f56291321cee0329eb9337571c0eaa43d9ea388d2ad9"
+checksum = "a8341114dab33de052ec068d1b167bdf701e73bd1ed7db1d4c3917356a100ade"
 dependencies = [
  "ezu-core",
  "indexmap",
@@ -940,9 +945,9 @@ dependencies = [
 
 [[package]]
 name = "ezu-translate"
-version = "0.11.0"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8d36c22ee193d1b4b827748e82ad72d8b177e5afa70b6a2bc16fe0b9507eb56"
+checksum = "69e1ebab2aafd923fc5f2c094caf1e2b86956978b321aed1c73df79ecc614a0f"
 dependencies = [
  "ezu-core",
  "maplibre-expr",
@@ -4311,9 +4316,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.53.2"
+version = "1.54.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e95f91fcc7a621e8b030f6aa23c71fe9838ae2fb4d8118b75602a328f5144044"
+checksum = "b52fd3255258d26fac7264ab5a76b53c13367136dc011d3d6ad4f8ed070396a3"
 dependencies = [
  "bytes",
  "libc",
@@ -4603,9 +4608,9 @@ dependencies = [
 
 [[package]]
 name = "unicode-width"
-version = "0.2.2"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b4ac048d71ede7ee76d585517add45da530660ef4390e49b098733c6e897f254"
+checksum = "ca718471876992059f251e33aafc334346ada08042b7661dd1fe313a9bced557"
 
 [[package]]
 name = "unicode-xid"
